@@ -214,6 +214,9 @@ fn setup(k: &Kernel, pool: &Pool, i: &Input, other: bool) -> ScResult<CurveClass
             ..ResetOptions::default()
         },
     )?;
+    // The native fixture uses SetZoneTol3d, which stores zero literally; ReSet
+    // instead treats zero as a sentinel.
+    cc.set_src_zone_tol_3d(i.tol);
     if i.op == 3 && ((!other && i.flag1) || (other && i.flag2)) {
         cc.set_uv_curve1(Some(H(if other { 3 } else { 2 }, ClassObjectKind::Curve)));
     }
@@ -274,13 +277,13 @@ fn put_curve(out: &mut Vec<f64>, curve: &Curve) {
         }
     }
 }
-fn put_pc(out: &mut Vec<f64>, pc: &PointClassification<H>) {
+fn put_pc(out: &mut Vec<f64>, pc: &PointClassification<H>, target: H) {
     let uv = pc.uv_param();
     let uvw = pc.uvw_param();
     let sss = pc.sss_point();
     out.extend([
         f64::from(pc.point_class().code()),
-        pc.object().map_or(-1., |h| if h.0 == 1 { 1. } else { -2. }),
+        pc.object().map_or(-1., |h| if h == target { 1. } else { -2. }),
         pc.deviation(),
         pc.t_param(),
         uv.x,
@@ -297,12 +300,12 @@ fn put_pc(out: &mut Vec<f64>, pc: &PointClassification<H>) {
         pc.src_zone_tol_3d(),
     ]);
 }
-fn put_cc(out: &mut Vec<f64>, cc: &CurveClassification<H>) {
+fn put_cc(out: &mut Vec<f64>, cc: &CurveClassification<H>, target: H) {
     out.extend([cc.size() as f64, cc.interval().min(), cc.interval().max()]);
     for ivl in cc.intervals() {
         out.extend([ivl.min(), ivl.max()]);
         for pc in [&ivl.start, &ivl.mid, &ivl.end] {
-            put_pc(out, pc);
+            put_pc(out, pc, target);
         }
     }
 }
@@ -490,8 +493,8 @@ fn rust(i: &Input) -> ScResult<Output> {
         }
     };
     out.insert(0, st);
-    put_cc(&mut out, &cc);
-    put_cc(&mut out, &other);
+    put_cc(&mut out, &cc, target(i));
+    put_cc(&mut out, &other, target(i));
     for s in solutions {
         out.extend([
             f64::from(s.solution_type.code()),

@@ -5077,6 +5077,19 @@
           102
         ]
       }
+    },
+    {
+      "name": "zero_source_tolerance_literal_setter",
+      "upstream_ref": "source/SMLib/inc/SmCurveClass.h:498 (SetSrcZoneTol3d); fixture setup must not substitute ReSet zero semantics",
+      "inputs": {
+        "op": 0,
+        "tol": 0,
+        "bounds": [
+          0,
+          0.5,
+          1
+        ]
+      }
     }
   ]
 }
