@@ -9,6 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
+  CARGO_BUILD_JOBS: 2
   # Must match ATTRIBUTION.md / AGENTS.md (full SHA so a shallow fetch works).
   UPSTREAM_REPO: https://github.com/NVIDIA-Omniverse/usd-brep
   UPSTREAM_COMMIT: c9c5979f04cea8c38213004d4f04df0dcfb40d05  # c9c5979
@@ -19,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup show active-toolchain || rustup toolchain install
-      - run: cargo fmt --all --check
+      - run: nice -n 10 cargo fmt --all --check
 
   clippy:
     runs-on: ubuntu-latest
@@ -28,7 +29,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> bin"
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: nice -n 10 cargo clippy --workspace --all-targets -- -D warnings
 
   test:
     runs-on: ubuntu-latest
@@ -37,7 +38,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> bin"
-      - run: cargo test --workspace
+      - run: nice -n 10 cargo test --workspace
 
   wasm:
     runs-on: ubuntu-latest
@@ -47,7 +48,7 @@ jobs:
         with:
           workspaces: ". -> bin"
       - run: rustup target add wasm32-unknown-unknown
-      - run: cargo check -p solidcore --target wasm32-unknown-unknown
+      - run: nice -n 10 cargo check -p solidcore --target wasm32-unknown-unknown
 
   # Same packaging check the release workflow runs before publishing (no secrets).
   publish-dry-run:
@@ -57,7 +58,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> bin"
-      - run: cargo publish -p solidcore --locked --dry-run
+      - run: nice -n 10 cargo publish -p solidcore --locked --dry-run
 
   deny:
     runs-on: ubuntu-latest
@@ -114,7 +115,7 @@ jobs:
           if [ -f .cpp/lib/libSMLib.a ] && [ -f .cpp/lib/libSM_API.a ] && [ -f .cpp/ffi.env ]; then
             echo "C++ reference restored from cache"
           else
-            harness/cpp/build.sh --jobs "$(nproc)"
+            nice -n 10 harness/cpp/build.sh --jobs 2
           fi
 
       - uses: Swatinem/rust-cache@v2
@@ -128,7 +129,7 @@ jobs:
       # difftest/cpp enables solidcore-ffi/cpp and registers the runners.
       - name: Clippy with the C++ feature
         if: steps.green.outputs.any == 'true'
-        run: cargo clippy --workspace --all-targets --features difftest/cpp -- -D warnings
+        run: nice -n 10 cargo clippy --workspace --all-targets --features difftest/cpp -- -D warnings
 
       - name: Differential regression and full sensitivity
         if: steps.green.outputs.any == 'true'
@@ -149,7 +150,7 @@ jobs:
 
       - name: Native dispatch contract tests
         if: steps.green.outputs.any == 'true'
-        run: cargo test -p solidcore-ffi --features cpp dispatch_contract_tests
+        run: nice -n 10 cargo test -p solidcore-ffi --features cpp dispatch_contract_tests
 
       - name: Upload differential reports
         if: always()
