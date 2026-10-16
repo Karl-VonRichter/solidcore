@@ -17,8 +17,8 @@
 //! and vertex/face gaps. Opaque handles still defer. The SSS refinement block
 //! (upstream lines 14812–15082) needs mutable curve/topology ownership and defers
 //! before editing geometry; ordinary and large-gap vertex projections are ported.
-//! Part-6 interval operations call the active dependency implementation. The fixup restart loop is bounded by the
-//! three times the initial interval count plus one: fixes remove an interval or
+//! Part-6 interval operations call the active dependency implementation. The fixup
+//! restart loop is bounded by three times the initial interval count plus one: fixes remove an interval or
 //! snap an edge classification to a vertex. Undefined
 //! native null dereferences and unequal paired classification lengths return errors.
 //! Debug drawing/assertions are omitted. Ignored ordinary Trim failures stay ignored;
@@ -241,13 +241,12 @@ impl<O: ClassObject> CurveClassification<O> {
     /// Repairs classified interval endpoints, restarting after each interval removal.
     ///
     /// # Errors
-    /// Evaluation errors, unavailable part-6 repairs, or a repair loop that fails to shrink.
+    /// Evaluation errors, unresolved topology, or a repair loop that makes no progress.
     pub fn fixup_classification(
         &mut self,
         k: &Kernel,
         geometry: &impl ClassGeometry<O>,
     ) -> Result<()> {
-        let _ = k;
         let mut restarts = self.size().saturating_mul(3).saturating_add(1);
         'restart: loop {
             for i in 0..self.size() {
@@ -623,7 +622,7 @@ impl<O: ClassObject> CurveClassification<O> {
 /// modified in place when a range collapses; their end records are preserved.
 ///
 /// # Errors
-/// Invalid target kinds fail. Opaque edge topology and part-6 range insertion defer.
+/// Invalid target kinds fail. Opaque edge topology and unavailable insertion callees defer.
 /// Native short-range tangency filtering without an edge dereferences a null pointer;
 /// Rust returns an invalid-input error for that branch.
 pub fn insert_solutions<O: ClassObject>(

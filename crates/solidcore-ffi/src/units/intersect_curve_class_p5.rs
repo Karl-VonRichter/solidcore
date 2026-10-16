@@ -27,7 +27,7 @@ fn invalid() -> FfiError {
     FfiError::InvalidArgument("invalid curve_class_p5 input or undefined native path".into())
 }
 
-/// Validates and executes a bounded oracle input.
+/// Validates a bounded oracle input before native execution.
 ///
 /// Native topology mutation on bare objects and the
 /// null-edge short-range tangency bug are excluded. Valid non-topology insertion,
