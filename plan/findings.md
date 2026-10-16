@@ -5544,7 +5544,7 @@ with the runner-only profile override. No platform prerequisites enter this PR.
   The oracle explicitly makes the UV line NURBs, matching Rust's base
   materialization. Both sides also construct their input intervals with the
   classification owner, so their initial source-zone fields agree.
-- **Validation environment and scope.** Numerical source is based on
+- **Original submission validation (before review follow-up).** Numerical source is based on
   `b7ea14fa` (official main merged through `bbf5b262`), with clean pinned
   upstream `c9c5979f04cea8c38213004d4f04df0dcfb40d05`. Linux validation uses
   Ubuntu 26.04.1 x86_64, GCC 15.2.0, Rust 1.98.0, two Cargo jobs or fewer,
@@ -5563,3 +5563,8 @@ with the runner-only profile override. No platform prerequisites enter this PR.
   merged kernel tests, WASM and native FFI tests (37 passed; the ignored child
   helper is exercised by its 720-probe parent matrix) pass. Source, harness and
   fixture checksums match the VM copy.
+
+Review follow-up validation is pending on Linux. Formatting, strict plain Clippy,
+1,220 kernel tests and WASM pass on the review changes. The original submission
+results above do not certify the new stationary-point, full-circle or unequal-count
+fixtures. Updated native reports will be recorded after that run completes.

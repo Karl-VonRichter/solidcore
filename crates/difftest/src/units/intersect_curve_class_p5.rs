@@ -1,5 +1,5 @@
 //! Differential runner for the part-5 `SmCurveClassification` operations.
-//! Real line/circle sources and line/plane targets; complete interval and solution
+//! Real lines, circles and stationary B-splines; complete interval and solution
 //! state is compared. Topology-handle and part-6 gaps are explicit deferrals.
 
 use crate::case::CaseContext;

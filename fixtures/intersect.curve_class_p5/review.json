@@ -841,6 +841,75 @@
           ]
         ]
       }
+    },
+    {
+      "name": "circle_full_domain_common_extraction_1",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp (ExtractGeometry on a real SmCircle)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "bounds": [
+          0,
+          360
+        ],
+        "classes": [
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102
+        ],
+        "flag3": false
+      }
+    },
+    {
+      "name": "circle_full_domain_common_extraction_4",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp (ExtractGeometry on a real SmCircle)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "bounds": [
+          0,
+          90,
+          180,
+          270,
+          360
+        ],
+        "classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ],
+        "flag3": false
+      }
     }
   ]
 }

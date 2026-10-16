@@ -1,10 +1,12 @@
 //! Native oracle for `intersect.curve_class_p5` (`SmCurveClass.cpp`).
 //!
 //! Flat input: `op shape dim_minus_2 ignore flag1 flag2 flag3 target index scale
-//! source_zone angle n_intervals n_solutions optional_xsect_tol other_n_intervals`, followed by both
+//! source_zone angle n_intervals n_solutions optional_xsect_tol other_n_intervals`,
+//! followed by both
 //! classifications' boundaries, then their point-class codes (`3` per interval),
 //! then solutions (`type start_t start_other end_t end_other start_gap end_gap`).
-//! A negative optional tolerance selects upstream's default. Shapes are line/circle, or a stationary quadratic source/target/both;
+//! A negative optional tolerance selects upstream's default. Shapes are line/circle,
+//! or a stationary quadratic source/target/both;
 //! targets are real line/plane/vertex/face. Counts and native undefined branches are
 //! checked before entry. Output contains status, operation outputs, both full interval
 //! states and every mutable solution end. No native pointers cross the boundary.
