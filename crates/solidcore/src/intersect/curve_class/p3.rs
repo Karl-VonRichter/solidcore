@@ -37,7 +37,7 @@
 //!   restarts are bounded by the interval count plus one (each squeeze removes an
 //!   interval); past it `SM_ERR` is returned where upstream would recurse without end.
 //! - **Pointers into the interval array.** `GetPointClassByIndex` /
-//!   `GetPointClassMateByIndex` return pointers; the adapters below return a
+//!   `GetPointClassMateByIndex` return pointers; the helpers below return a
 //!   [`PointClassLoc`] (interval, end) that [`CurveClassification::pc_at`] /
 //!   [`CurveClassification::pc_at_mut`] resolve.
 //! - **Undefined behaviour upstream** is an error here: a `FindInterval` / `IsCoincident` /
@@ -68,6 +68,7 @@ use crate::intersect::curve_class::p1::{
     object_dimension, xsect_tol_2d_or_3d_for_classify_pair, CurveClassification, CurveInterval,
     IntervalPosition,
 };
+use crate::intersect::curve_class::p7::CoincidentMaybe;
 use crate::intersect::point_class::{
     object_zone_tol_3d, ClassGeometry, ClassObject, ClassObjectKind, PointClassType,
     PointClassification, Precedence,
@@ -168,17 +169,14 @@ pub(super) fn point_class_loc_by_index<O: ClassObject>(
     cc: &CurveClassification<O>,
     index: usize,
 ) -> Result<PointClassLoc> {
-    cc.point_class_by_index(index)?;
-    Ok(if index == cc.size() {
-        PointClassLoc {
-            interval: index - 1,
-            end: IntervalPosition::End,
-        }
-    } else {
-        PointClassLoc {
-            interval: index,
-            end: IntervalPosition::Start,
-        }
+    let (interval, is_end) = cc.point_class_by_index_interval(index)?;
+    Ok(PointClassLoc {
+        interval,
+        end: if is_end {
+            IntervalPosition::End
+        } else {
+            IntervalPosition::Start
+        },
     })
 }
 
@@ -191,9 +189,9 @@ fn point_class_mate_loc_by_index<O: ClassObject>(
     index: usize,
 ) -> Result<Option<PointClassLoc>> {
     Ok(cc
-        .point_class_mate_by_index(k, geometry, index)?
-        .map(|_| PointClassLoc {
-            interval: if index == 0 { cc.size() - 1 } else { index - 1 },
+        .point_class_mate_interval(k, geometry, index)?
+        .map(|interval| PointClassLoc {
+            interval,
             end: IntervalPosition::End,
         }))
 }
@@ -215,7 +213,7 @@ pub(super) fn are_coincident_maybe<O: ClassObject>(
     other: &CurveClassification<O>,
     index: usize,
 ) -> Result<(Coincident, IntervalPosition)> {
-    let (coin, end) = cc.are_coincident_maybe(k, geometry, other, index, false)?;
+    let (coin, end) = cc.are_coincident_maybe(k, geometry, other, index, true)?;
     Ok((
         match coin {
             super::CoincidentMaybe::No => Coincident::No,
@@ -1218,8 +1216,9 @@ impl<O: ClassObject> CurveClassification<O> {
     ///
     /// The errors of [`PointClassification::merge_into_object`]; `SM_ERR` when an old
     /// edge's classification parameter lies in neither new edge; the curve evaluation and
-    /// drop-point errors; [`SolidError::Unported`] for `GetPointClassByIndex`,
-    /// `GetPointClassMateByIndex` (unit `intersect.curve_class_p7`),
+    /// drop-point errors; those of `GetPointClassByIndex` / `GetPointClassMateByIndex`
+    /// ([`CurveClassification::point_class_by_index`],
+    /// [`CurveClassification::point_class_mate_by_index`]); [`SolidError::Unported`] for
     /// `GetClassifyCrvLoc` (unit `intersect.curve_class_p2`) and the topology members.
     pub fn merge_point_class(
         &mut self,
@@ -1406,8 +1405,9 @@ impl<O: ClassObject> CurveClassification<O> {
     /// # Errors
     ///
     /// `SM_ERR` when `AreCoincidentMaybe` is unsure; [`SolidError::InvalidInput`] when
-    /// `other` has fewer intervals; [`SolidError::Unported`] for `AreCoincidentMaybe`
-    /// (unit `intersect.curve_class_p7`) and `ConnectIntervals` (unit
+    /// `other` has fewer intervals; those of
+    /// [`CurveClassification::are_coincident_maybe`]; [`SolidError::Unported`] for
+    /// `ConnectIntervals` (unit
     /// `intersect.curve_class_p2`).
     pub fn cleanup_and_validate(
         &mut self,
@@ -1495,9 +1495,8 @@ impl<O: ClassObject> CurveClassification<O> {
 ///
 /// # Errors
 ///
-/// The errors of `RemovePointClass`; [`SolidError::Unported`] for
-/// `GetPointClassByIndex` / `GetPointClassMateByIndex` (unit `intersect.curve_class_p7`)
-/// and the topology members.
+/// The errors of `RemovePointClass`, `GetPointClassByIndex` and
+/// `GetPointClassMateByIndex`; [`SolidError::Unported`] for the topology members.
 pub fn change_edge_point_class_to_near_vertex<O: ClassObject>(
     k: &Kernel,
     geometry: &impl ClassGeometry<O>,

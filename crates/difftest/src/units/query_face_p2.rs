@@ -536,6 +536,24 @@ impl qf::CurveOnClassifyObjects<H> for Objects<'_> {
     }
 }
 
+impl solidcore::intersect::point_class::ClassGeometry<H> for Objects<'_> {
+    fn curve(&self, o: H) -> Option<&Curve> {
+        (o == H::Curve).then_some(&self.curve)
+    }
+    fn surface(&self, o: H) -> Option<&solidcore::surface::surface::Surface> {
+        match o {
+            H::Surface(f) => self.brep.face(f).ok().and_then(|r| r.surface.as_ref()),
+            _ => None,
+        }
+    }
+    fn volume(&self, _o: H) -> Option<&solidcore::surface::volume::Volume> {
+        None
+    }
+    fn point(&self, _o: H) -> Option<solidcore::math::Point3> {
+        None
+    }
+}
+
 /// A Rust error as the case outcome: deferred for [`SolidError::Unported`], else an
 /// error no C++ output has (a visible failure).
 fn rust_err(e: &SolidError) -> Output {
