@@ -681,8 +681,8 @@ pub trait CurveOnClassifyObjects<O> {
 ///
 /// # Errors
 ///
-/// [`SolidError::Unported`]: `SmCurveClassification::ReSet` (`intersect.curve_class_p2`)
-/// and the boundary intersections and interval classification (see the module
+/// [`SolidError::Unported`]: boundary intersections, opaque vertex-handle integration
+/// and interval classification (see the module
 /// Deviations); `SM_ERR` when the trim boundary intersection fails;
 /// [`SolidError::InvalidInput`] for a classification without (resolvable) curve or an
 /// unresolvable target loop.
@@ -699,7 +699,7 @@ pub fn curve_on_classify<O: ClassObject>(
     uv_space_okay: bool,
 ) -> Result<bool> {
     // init output
-    reset_classification(cc)?;
+    cc.reset(k, &crate::intersect::curve_class::ResetOptions::default())?;
     cc.set_face(Some(objects.face(f)));
     let mut modified = false;
 
@@ -712,7 +712,7 @@ pub fn curve_on_classify<O: ClassObject>(
                 continue;
             }
             modified = true;
-            reset_classification(cc)?;
+            cc.reset(k, &crate::intersect::curve_class::ResetOptions::default())?;
         }
 
         let curve = classification_curve(objects, cc)?;
@@ -742,7 +742,7 @@ pub fn curve_on_classify<O: ClassObject>(
                 .surface
                 .as_ref()
                 .ok_or_else(|| null(OP_CURVE, "face without surface"))?;
-            intersect_vertices(k, objects, cc, &vertices, surface, has_big_gaps)?;
+            intersect_vertices(k, b, f, objects, cc, &vertices, surface, has_big_gaps)?;
 
             // 2nd intersect face edges with the curve
             let edges = face_edges(b, f, cc.tgt_loops_only(), Some(&tgt_loops))?;
@@ -779,7 +779,16 @@ pub fn curve_on_classify<O: ClassObject>(
 
         // classify the interval - avoiding point classification if possible
         if ivl.mid.point_class() == PointClassType::Unknown {
-            classify_face_interval(cc, ii, do_point_classify, f, uv_space_okay)?;
+            cc.classify_face_interval(
+                k,
+                &ClassificationGeometry { b, f, objects },
+                ii,
+                do_point_classify,
+                objects.face(f),
+                None,
+                uv_space_okay,
+                None,
+            )?;
         }
     }
     Ok(modified)
@@ -795,13 +804,36 @@ fn classification_curve<'o, O: ClassObject>(
         .ok_or_else(|| null(OP_CURVE, "classification without curve"))
 }
 
-/// `SmCurveClassification::ReSet`.
-fn reset_classification<O>(_cc: &mut CurveClassification<O>) -> Result<()> {
-    // UNPORTED(intersect.curve_class_p2): SmCurveClassification::ReSet
-    Err(SolidError::unported(
-        "SmCurveClassification::ReSet",
-        "intersect.curve_class_p2",
-    ))
+/// Geometry accessible through the caller's classification handles and current face.
+struct ClassificationGeometry<'a, G> {
+    b: &'a Brep,
+    f: FaceId,
+    objects: &'a G,
+}
+impl<O: ClassObject, G: CurveOnClassifyObjects<O>> crate::intersect::point_class::ClassGeometry<O>
+    for ClassificationGeometry<'_, G>
+{
+    fn curve(&self, handle: O) -> Option<&Curve> {
+        self.objects.curve(handle)
+    }
+    fn surface(&self, handle: O) -> Option<&Surface> {
+        if self.objects.surface(self.f) == Some(handle) {
+            self.b.face(self.f).ok()?.surface.as_ref()
+        } else {
+            None
+        }
+    }
+    fn volume(&self, _: O) -> Option<&crate::surface::volume::Volume> {
+        None
+    }
+    fn point(&self, _: O) -> Option<Point3> {
+        None
+    }
+    fn topology_zone_tol_3d(&self, handle: O) -> Option<f64> {
+        (self.objects.face(self.f) == handle)
+            .then(|| self.b.face(self.f).ok().map(|f| f.tolerance))
+            .flatten()
+    }
 }
 
 /// `SmCurveClassification::IntersectTSBound(this, bDoCheck3d)`.
@@ -820,30 +852,14 @@ fn intersect_ts_bound<O>(
 /// `SmCurveClassification::IntersectVertices(vertices, surface, bHasBigGaps)`.
 fn intersect_vertices<O: ClassObject>(
     k: &Kernel,
+    b: &Brep,
+    f: FaceId,
     objects: &impl CurveOnClassifyObjects<O>,
     cc: &mut CurveClassification<O>,
     vertices: &[VertexId],
     surface: &Surface,
     has_big_gaps: bool,
 ) -> Result<()> {
-    struct CurveGeometry<'a, O> {
-        handle: Option<O>,
-        curve: &'a Curve,
-    }
-    impl<O: PartialEq> crate::intersect::point_class::ClassGeometry<O> for CurveGeometry<'_, O> {
-        fn curve(&self, handle: O) -> Option<&Curve> {
-            (self.handle.as_ref() == Some(&handle)).then_some(self.curve)
-        }
-        fn surface(&self, _: O) -> Option<&Surface> {
-            None
-        }
-        fn volume(&self, _: O) -> Option<&crate::surface::volume::Volume> {
-            None
-        }
-        fn point(&self, _: O) -> Option<Point3> {
-            None
-        }
-    }
     if !vertices.is_empty() {
         // UNPORTED(topology.vertex): VertexId-to-classification-handle mapping
         // CurveOnClassifyObjects can map faces and curves, but has no vertex-handle
@@ -853,11 +869,14 @@ fn intersect_vertices<O: ClassObject>(
             "topology.vertex",
         ));
     }
-    let geometry = CurveGeometry {
-        handle: cc.curve(),
-        curve: classification_curve(objects, cc)?,
-    };
-    cc.intersect_vertices(k, &geometry, &[], surface, has_big_gaps, true)
+    cc.intersect_vertices(
+        k,
+        &ClassificationGeometry { b, f, objects },
+        &[],
+        surface,
+        has_big_gaps,
+        true,
+    )
 }
 
 /// `SmFace::GetEdges(SmTArray&, NULL, bTgtLoopsOnly, pOptTgtLoops)`.
@@ -882,22 +901,6 @@ fn intersect_edges<O>(
     Err(SolidError::unported(
         "SmCurveClassification::IntersectEdges",
         "intersect.curve_class_p9",
-    ))
-}
-
-/// `SmCurveClassification::ClassifyFaceInterval(ii, bDoPointClassify, this, NULL,
-/// bUVSpaceOkay)`.
-fn classify_face_interval<O>(
-    _cc: &mut CurveClassification<O>,
-    _index: usize,
-    _do_point_classify: bool,
-    _face: FaceId,
-    _uv_space_okay: bool,
-) -> Result<()> {
-    // UNPORTED(intersect.curve_class_p7): SmCurveClassification::ClassifyFaceInterval
-    Err(SolidError::unported(
-        "SmCurveClassification::ClassifyFaceInterval",
-        "intersect.curve_class_p7",
     ))
 }
 
