@@ -4967,10 +4967,11 @@ mutated scales and accepted/reduced step counts are compared.
   the units' ports but on handle-to-B-rep resolution. The shim rejects the scripts that would
   walk a bare stand-in edge (undefined in C++: no edgeuse; UB-109/UB-110 cover the other
   undefined reads).
-- **Other stubs** are the maintainer's open PRs: `intersect.curve_class_p2` (PR #85: `InsertAt`,
+- **Original dependency stubs** were the maintainer's open PRs: `intersect.curve_class_p2` (PR #85: `InsertAt`,
   `EditIntervalMin/Max`, `ConnectIntervals`, `GetClassifyCrvLoc`) and `intersect.curve_class_p7`
   (PR #65: `GetPointClassByIndex`, `GetPointClassMateByIndex`, `AreCoincidentMaybe`). Cases that
-  reach them are `deferred`.
+  reached them were `deferred`. PR #141 merges those claims and wires these calls;
+  its revised differential evidence is recorded in the part-5 section below.
 - **`sm_FixProblemsBySqueezing`** ends with a tail call; the port restarts a loop at the same
   point (visit order unchanged), bounded by interval count + 1.
 
@@ -5041,6 +5042,81 @@ mutated scales and accepted/reduced step counts are compared.
   UB-117 (`UpdateEdges` dereferences its optional calling definition), UB-118 (null and
   deleted definitions in the two `Resolve`s), WR-95 (`CombineProtoEdge` moves every other
   definition; confirmed by `edge_pe_combine_every_other_*`).
+
+## intersect.curve_class_p2 (`SmCurveClassification`, part 2, 2026-10-14; partial, no disagreements)
+
+- **`sm_RefineCCIToSurfaces` is only partly ported.** Its entry checks (recursion
+  counter, point-solution test, both classification surfaces) are ported and compared;
+  everything after them starts with `pEdge->GetCurve()` and walks the edge's faces, edge
+  uses and Boolean mate, so it is the `UNPORTED(topology.edge)` site in
+  `intersect::curve_class::p2::refine_cci_to_surfaces`. Whoever wires that site must port
+  the remaining ~1,250 lines (`SmCurveClass.cpp` 1690-2940); the note is also in
+  `topology.edge`'s `notes`. The shim runs only the entry checks (past them the bare
+  stand-in edge's topology would be walked and its curve edited).
+- **`EditIntervalMin` reads the stale slot past `m_lSize`.** When collapsing the
+  neighbour removes the interval before the last one, upstream's next `(*this)[lIndex]`
+  is past the end: the slot `RemoveAt` left behind, a copy of the last interval. The port
+  reads that copy the same way; the following `CollapseInterval` fails (status ignored).
+- **`InsertAt(0, ..)` into a non-empty classification** is UB-98 (unsigned shift loop);
+  Rust returns `InvalidInput` and the shim rejects it.
+- **Shim guards.** Edits are rejected when any interval end classifies to an
+  `SmPoint3d` (UB-79: its zone tolerance is taken through `SmObject` virtuals); this is
+  conservative (not every end is reached). Owned curves (`ReSet(.., bIsCurveOwned=TRUE)`,
+  copied by `operator=`) are disowned before the ops that delete them, since they may be
+  pool objects; a curve deep-copied by `operator=` reports the id of its source.
+- **`operator=` keeps the old curve when `SmCurve::Copy` fails** (review fix, PR #85).
+  For an owned source curve upstream frees this classification's owned curve, then calls
+  `crOther.m_cpCurve->Copy(..)` and ignores its status. `SmHermiteCurve`, `SmConic` and
+  `SmIsoCurve` have no `Copy` override, so the base `SmCurve::Copy` returns `SM_ERR` and
+  leaves `m_cpCurve` unchanged: the target keeps its old (non-owned) curve, or `NULL` if
+  it owned the old one. The first port always copied the handle; `--seeds 30000` found 4
+  generated failures (gen8797, gen10415, gen11711, gen21161: a Hermite curve `ReSet`
+  owned, then assigned), now `fixtures/intersect.curve_class_p2/adv.json`. Because the
+  shim disowns the target before `operator=` (its curve may be a pool object), the
+  "owned old curve freed, copy fails -> `NULL`" branch is not compared against the C++;
+  it is covered by the Rust unit test `assign_owned_curve_without_copy` only.
+- **`ReSet` with a new curve and no interval** dereferences `NULL` upstream; Rust returns
+  `InvalidInput` before changing anything (the first port had already set
+  `m_bIsCurveCurrent`).
+
+## intersect.curve_class_p6 (partial; PR #138)
+
+- **Original PR #138 evidence, before p2/p7 integration.** 787 default cases:
+  281 bit-identical comparisons, zero
+  failures and 506 explicit deferrals; no absolute floors. The compared paths are
+  non-splicing `InsertCurveInterval`, empty `Homogenize`, and the early
+  `MergeInterval` exits. The native oracle calls the real four upstream members;
+  geometry evaluations and interval/point-classification fields are compared along
+  with statuses and created-entity output arrays. No status-only shortcut replaces
+  a Rust or C++ operation.
+- **Original dependency boundaries.** Nonempty homogenization and endpoint repair first needed
+  `GetPointClassByIndex` (p7). Insertion that splits or squeezes needed p2; its
+  coincident-maybe decisions needed p7. PR #141 wires those dependencies. The last
+  homogenization squeeze still belongs to p4. `MergeInterval` now stops at mutable
+  handle-to-B-rep resolution (`topology.edge`), past its implemented p2 accessor.
+  Its remaining graph mutation is not implemented or certified by this port.
+  Existing generic `point_class` tolerance access also defers on `topology.edge`
+  and `topology.face_p2`: these are adapter gaps in the opaque `ClassObject`
+  interface, even though those topology units already have arena APIs. The new
+  unit does not substitute stand-in topology results for these calls.
+- **Fixture scope.** The native side builds real `SmLine`, `SmCircle`, `SmEllipse`
+  and quadratic/constant `SmBSplineCurve` objects, and obtains topology from an
+  actual box. Fixtures exercise all operations and flag combinations, end and
+  interior subintervals, stored SSS points, adjacent short spans, degenerate
+  curves, and scales 1e-15 through 1e9. They do not certify 2D classification or
+  the deferred topology mutation. Constructor status/null checks precede topology
+  traversal; objects are scoped and destroyed after the classifications.
+- **Safety and recursion.** FFI validates complete bounded records, partitions,
+  enum values, flags and operation indices. Invalid geometry-as-topology merge
+  inputs are rejected; safe vertices-only paths remain accepted. A 720-process
+  regression matrix checks operations, true geometric kinds and flags with a
+  five-second per-child timeout, separately from differential pass counts. Tiny
+  and large constructor paths and malformed records have dedicated native tests.
+  The native FFI suite is run manually in the part-5 dependency stack; workflow
+  changes are excluded from the numerical PR. Rust insertion replaces tail
+  recursion with the same restart order, bounded by the initial interval count
+  plus one; homogenization refuses a squeeze that makes no progress.
+
 
 ## surface.cone_p3: analytic intersections and dispatch handoff (PR #131)
 
@@ -5330,3 +5406,72 @@ independent Apple libc++ database abort was not rerun.
 
 Strict C++-feature workspace Clippy also passes in the same disposable checkout
 with the runner-only profile override. No platform prerequisites enter this PR.
+
+## intersect.curve_class_p5 (PR #141)
+
+- **Scope and dependencies.** The seven owned functions are exposed in
+  `intersect::curve_class::p5`. This branch builds on the active p2/p7 claims
+  (PRs #85/#65) and p6 (PR #138); their implementations are merged rather than
+  duplicated. The part-3 insertion, point-index/mate, coincidence and interval
+  editing back-edges now use those implementations. Face `CurveOnClassify`
+  uses real reset and interval classification; its nonempty vertex list still
+  needs a `VertexId`-to-classification-handle mapping. No p5-tagged stubs remain.
+- **Native coverage.** The oracle constructs real lines/circles in 2D and 3D,
+  line/plane targets, standalone vertices and a real face owner. It compares the
+  complete interval/point-classification state, mutable solution records, and
+  extracted curve types/domains plus five sampled points per 3D/UV curve.
+  Fixtures cover range collapse at the 0.8/1.2 gap thresholds, reversed ranges,
+  tangency and interval boundaries, both solution indices, face-range length
+  thresholds, optional UV/isolated-point outputs, vertex projection, endpoint
+  repairs and merge skip paths. Generated cases use fixed seeds and scales
+  1e-6, 1 and 1e6. No absolute floors are added.
+- **Integration limits.** Opaque edge handles cannot resolve mutable B-rep
+  ownership for edge snapping/refinement. The SSS vertex-refinement block
+  (`SmCurveClass.cpp:14812–15082`) edits the intersection curve and clears UV
+  trims on connected/mate edges; it defers before mutation until that ownership
+  interface exists. Part-6 `MergeInterval` still implements only its early
+  exits and defers graph mutation on `topology.edge`; paired fillet handle
+  lookup is owned by `boolean.topology_intersector_p1`. The generic
+  `SmCrvOnSurf` surface dispatch is also missing: the current Rust type owns
+  only a B-spline surface, so the explicit analytic-plane fixture defers on the
+  `curve.crv_on_surf` type boundary, as in surface part 11. These topology/SSS paths and
+  nonempty large-gap vertexuses are not certified by the numerical comparisons.
+- **Review corrections.** Paired classifications reject shorter or longer
+  interval arrays before mutation, with focused regression tests. Extraction
+  slices analytic UV subclasses to their native B-spline base and preserves the
+  interval changed by preceding trims. Ordinary ignored trim errors remain
+  ignored; failed native copies return a safe error. Merge singularities retain
+  the native reused scratch-list append lifecycle. Fixup restarts are bounded
+  by three times the initial interval count plus one, allowing both interval
+  removals and edge-to-vertex snaps.
+- **Native safety.** UB-125 and UB-126 are source-found null dereferences, not
+  executed crash reproductions. The FFI rejects only the short ranges that
+  survive native collapse and reach the null-edge tangency branch; it retains
+  valid collapsed/reversed ranges and classified endpoint repair calls.
+  IntersectVertices receives a real surface owner, and standalone vertices are
+  excluded from its nonempty large-gap branch. Counts and complete records are
+  checked before native allocation or traversal.
+  UB-127 was reproduced in native generation and traced under a debugger: the
+  upstream UV base copy leaves a lazy line without a NURB and crashes in trim.
+  The oracle explicitly makes the UV line NURBs, matching Rust's base
+  materialization. Both sides also construct their input intervals with the
+  classification owner, so their initial source-zone fields agree.
+- **Validation environment and scope.** Numerical source is based on
+  `b7ea14fa` (official main merged through `bbf5b262`), with clean pinned
+  upstream `c9c5979f04cea8c38213004d4f04df0dcfb40d05`. Linux validation uses
+  Ubuntu 26.04.1 x86_64, GCC 15.2.0, Rust 1.98.0, two Cargo jobs or fewer,
+  and the unmodified reference flags (`-O2 -ffp-contract=off -fno-fast-math`).
+  The standard difftest profile compared all 1,043 supported part-5 cases
+  bit-identically; one generic curve-on-surface case deferred. After its blocker
+  label was corrected, the same 1,044 cases were rerun with only the difftest
+  adapter package at opt-level 0 (kernel remains opt-level 1, reference remains
+  opt-level 2); outcomes and compared values were unchanged. No profile or build
+  script changes are submitted. Nine affected units passed independently. The
+  existing `--green` selection passed 185 units (99 green, 86 partial, zero
+  failures). The final merged-base rerun confirms unchanged reports for parts
+  3/5/6/7 and face-query part 2, and validates the added cone part 3 (1,187
+  compared, 121 deferred, zero error). Part-5 perturbation detects all 1,043
+  modified outputs. Formatting, strict plain/native-enabled Clippy, all 1,208
+  merged kernel tests, WASM and native FFI tests (37 passed; the ignored child
+  helper is exercised by its 720-probe parent matrix) pass. Source, harness and
+  fixture checksums match the VM copy.
