@@ -5504,3 +5504,48 @@ with the runner-only profile override. No platform prerequisites enter this PR.
   merged kernel tests, WASM and native FFI tests (37 passed; the ignored child
   helper is exercised by its 720-probe parent matrix) pass. Source, harness and
   fixture checksums match the VM copy.
+
+## intersect.curve_class_p9 (PR #143)
+
+- **Scope and ownership.** `IntersectEdges` and `IntersectTSBound` are ported in
+  `intersect::curve_class::p9`, on the active part-5 dependency stack (#141,
+  including #85/#65/#138). Borrowed boundary views resolve the B-rep's native
+  upward loopuse order, actual curve identities, intervals, vertex UVs and
+  edge/face gaps. The caller supplies the trimmed cache. Cached traversal uses
+  the real curve cache and surface-cache UV node search; local visited-handle
+  lists replace temporary native marks without changing visitation order.
+- **Integration boundaries.** Edge hits reach part 5's existing opaque-edge
+  insertion deferral (`topology.edge`); part 9 does not duplicate the mutable
+  edge/SSS work owned by #141. Generic non-B-spline `SmCrvOnSurf` evaluation
+  remains `curve.crv_on_surf`, including analytic planes. Absent lazy cached
+  trim curves defer on `topology.edgeuse_p3`; an absent fallback trim is the
+  native null-pointer error. Both part-9 back-edges in `query.face_p2` call the
+  implementations. Its new optional boundary-view/cache callbacks expose the
+  arena-to-handle integration; the default still defers nonempty boundary lists
+  on `query.face_p2` itself, rather than mislabeling part 9 as unported.
+- **Native coverage.** The oracle constructs real lines, real planes, bilinear
+  B-spline patches, singular collapsed-side patches, complete wire edges and
+  faces/vertex loops via `SmBrep` APIs. Explicit one-node/two-leaf cache recipes
+  supply identical traversal inputs to both implementations; they certify
+  traversal, not trim-cache construction. Complete interval and point records
+  include object identities, parameters, gaps, source zones and SSS fields.
+  Endpoint snaps, source subdomains, ordered vertex loops, repeated cached
+  entries, cache flags, zero tolerance, 3D gap rejection, disjoint/shared curves
+  and UV lifting are covered. Fixed-seed generation varies scales 1e-6/1/1e6,
+  tolerances, cache states and independent flags. No absolute floors are used.
+- **Review corrections and limits.** `has_big_gaps` is required in the native
+  declaration (despite its source comment describing a default); Rust's options
+  convenience defaults it to false. The native default `bUVSpaceOkay = TRUE`
+  is exercised with the three-argument call. The exact pointer-equality overlap
+  shortcut and strict gap-bump comparison are retained. A failed ignored 3D
+  drop clears the previous UV success, matching native output initialization.
+  Culled-to-empty trim solutions do not trigger an unrelated edge insertion
+  deferral. Native cache cleanup precedes external recipe-list destruction even
+  when an exception unwinds. FFI checks exact lengths, bounded counts, flags,
+  nondegenerate lines and single ownership of a shared source before allocation.
+  Mutable edge insertion, general surface lifting, automatic trim creation and
+  the caller-specific default query handle adapter are not certified here. The
+  positive edge/face-gap bump has a focused Rust regression; the native wire
+  edges have no face edgeuse, so nonzero-gap ownership integration is not claimed.
+- **Validation.** Pending the final Linux gate; do not infer passing results from
+  the draft revision or intermediate compiler checks.

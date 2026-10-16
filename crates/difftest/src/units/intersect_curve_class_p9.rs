@@ -492,18 +492,22 @@ impl UnitDiff for Runner {
         let mut out = json!({"op":op,"kind":rng.below(2),"state":rng.below(6),"dim3":op==0,
             "scale":scale,"zone":scale*1e-7,"cross":rng.below(2)==1,"check3d":rng.below(2)==1,
             "big":rng.below(2)==1,"defaults":rng.below(3)==0});
+        let object = out.as_object_mut()?;
         if op == 1 {
             let u = rng.uniform(0.1, 0.9);
             let gap = rng.choose(&[0., 0., 0., 1e-8, 1e-6]).copied()?;
-            out["vertices"] = json!([[u, 0.5, gap]]);
+            object.insert("vertices".into(), json!([[u, 0.5, gap]]));
             if rng.below(4) == 0 {
-                out["source"] = json!([[0.1, 0.7, 0.], [0.9, 0.7, 0.]]);
+                object.insert("source".into(), json!([[0.1, 0.7, 0.], [0.9, 0.7, 0.]]));
             }
         } else {
             let y = rng.choose(&[0.5, 0.7, 0.50000001]).copied()?;
-            out["edges"] = json!([{"a":[0.5,y,-1.],"b":[0.5,y,1.],"zone":scale*1e-7}]);
+            object.insert(
+                "edges".into(),
+                json!([{"a":[0.5,y,-1.],"b":[0.5,y,1.],"zone":scale*1e-7}]),
+            );
             if rng.below(5) == 0 {
-                out["edges"] = json!([]);
+                object.insert("edges".into(), json!([]));
             }
         }
         Some(out)
