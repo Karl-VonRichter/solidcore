@@ -516,7 +516,13 @@ impl UnitDiff for Runner {
                 .copied()
                 .unwrap_or(0);
             let n = 1 + rng.below(5) as usize;
-            let target = if op == 6 { 2 } else { rng.below(2) as usize };
+            let target = if op == 6 {
+                2
+            } else if op == 3 && rng.below(2) == 0 {
+                3
+            } else {
+                rng.below(2) as usize
+            };
             let scale = [1e-6, 1., 1e6]
                 .get(rng.below(3) as usize)
                 .copied()
