@@ -379,10 +379,10 @@ impl<O: ClassObject> CurveClassification<O> {
         let wrapped;
         let curve = if !uv_space_okay && original_curve.dim() == 2 {
             let SurfaceKind::BSpline(bs) = surface.kind() else {
-                // UNPORTED(surface.surface_p2): SmCrvOnSurf over a generic Surface
+                // UNPORTED(curve.crv_on_surf): SmCrvOnSurf over a generic Surface
                 return Err(SolidError::unported(
                     "SmCrvOnSurf generic Surface dispatch",
-                    "surface.surface_p2",
+                    "curve.crv_on_surf",
                 ));
             };
             wrapped = Curve::from(CrvOnSurf::new(
