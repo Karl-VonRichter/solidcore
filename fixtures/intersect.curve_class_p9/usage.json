@@ -446,6 +446,48 @@
           }
         ]
       }
+    },
+    {
+      "name": "tiny_vertex_check_3d_explicit_zone",
+      "upstream_ref": "source/SMLib/inc/SmVertex.h:269 (explicit shrinking fixture tolerance)",
+      "inputs": {
+        "op": 1,
+        "scale": 1e-06,
+        "zone": 1e-13,
+        "check3d": true,
+        "vertices": [
+          [
+            0.5,
+            0.5,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "tiny_edge_explicit_zone_miss",
+      "upstream_ref": "source/SMLib/inc/SmEdge.h:431 (explicit shrinking fixture tolerance)",
+      "inputs": {
+        "op": 0,
+        "dim3": true,
+        "scale": 1e-06,
+        "zone": 1e-13,
+        "edges": [
+          {
+            "a": [
+              0.5,
+              0.500001,
+              -1
+            ],
+            "b": [
+              0.5,
+              0.500001,
+              1
+            ],
+            "zone": 1e-13
+          }
+        ]
+      }
     }
   ]
 }

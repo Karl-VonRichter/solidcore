@@ -137,7 +137,7 @@ SC_EXPORT int32_t sc_intersect_curve_class_p9_run(const double* in,int64_t n,dou
     for(int j=0;j<nv;j++) {
         const double* p=in+22+3*j; SmShell* sh=nullptr; SmVertex* v=nullptr;
         auto st=brep->MakeShellVertex(nullptr,SmPoint3d(scale*p[0],scale*p[1],0),sh,v);
-        if(st!=SM_SUCCESS) return SC_ERR_ARG; v->SetTolerance(zone);
+        if(st!=SM_SUCCESS) return SC_ERR_ARG; v->SetTolerance(zone,FALSE);
         loop_vertices.Add(v); vertices.push_back(v);
     }
     SmRegion* region=nullptr; SmShell* shell=nullptr; SmFace* face=nullptr;
@@ -146,6 +146,13 @@ SC_EXPORT int32_t sc_intersect_curve_class_p9_run(const double* in,int64_t n,dou
     else setup=brep->MakeFaceTopology(nullptr,s,SM_OT_SAME,loop_sizes,eus,loop_vertices,region,shell,face);
     if(setup!=SM_SUCCESS || !face) return SC_ERR_ARG;
     SmTArray<SmLoopuse*> loops; face->GetUpwardFaceuse()->GetLoopuses(loops);
+    // Match the explicit rectangle-view tolerances on the Rust side too.
+    if(in[9]) for(ULONG j=0;j<loops.GetSize();j++) {
+        SmTArray<SmVertexuse*> vs; SmTArray<SmEdgeuse*> es;
+        loops[j]->GetVertexuses(vs); loops[j]->GetEdgeuses(es);
+        for(ULONG k=0;k<vs.GetSize();k++) vs[k]->GetVertex()->SetTolerance(zone,FALSE);
+        for(ULONG k=0;k<es.GetSize();k++) es[k]->GetEdge()->SetTolerance(0.0,FALSE);
+    }
     // Establish UV values before introducing a controlled 3D vertex gap.
     for(ULONG j=0;j<loops.GetSize();j++) { SmTArray<SmVertexuse*> vs; loops[j]->GetVertexuses(vs);
         for(ULONG k=0;k<vs.GetSize();k++) { SmPoint2d uv; vs[k]->ComputeUVPoint(uv); }
@@ -166,7 +173,7 @@ SC_EXPORT int32_t sc_intersect_curve_class_p9_run(const double* in,int64_t n,dou
             SmPoint3d(scale*p[3],scale*p[4],scale*p[5]),3,&ctx);
         SmEdge* e=nullptr; auto st=brep->CreateWireEdgeFromCurve(c,SmExtent1d(p[6],p[7]),e);
         if(st!=SM_SUCCESS || !e) return SC_ERR_ARG;
-        e->SetTolerance(p[9]); targets.Add(e); edges.push_back(e);
+        e->SetTolerance(p[9],FALSE); targets.Add(e); edges.push_back(e);
     }
     SmCurveClassification cc; cc.SetCurve(source,FALSE); cc.SetSurface1(s);
     SmTol::SetZoneTol3d(&cc,SmZoneTol3d(zone)); cc.SetDoingCrossHatch(in[4]);

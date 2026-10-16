@@ -677,8 +677,9 @@ pub trait CurveOnClassifyObjects<O> {
     /// Resolved trim-boundary records in upward loopuse traversal order. Handles
     /// must resolve through `curve`, `vertex_point` and `topology_zone_tol_3d`.
     /// The default supports an empty upward loop list; other callers supply their
-    /// arena-to-classification-handle adapter.
-    fn boundary_loops(&self, b: &Brep, f: FaceId) -> Result<Vec<BoundaryLoop<O>>> {
+    /// arena-to-classification-handle adapter. `k` is the caller's context for
+    /// any lazy UV evaluation or gap calculation.
+    fn boundary_loops(&self, _k: &Kernel, b: &Brep, f: FaceId) -> Result<Vec<BoundaryLoop<O>>> {
         if let Some(fu) = fp2::upward_faceuse(b, f)? {
             if !b.faceuse(fu)?.loopuses.is_empty() {
                 return Err(SolidError::unported(
@@ -693,6 +694,7 @@ pub trait CurveOnClassifyObjects<O> {
     /// The default supports an empty edge list.
     fn boundary_edges(
         &self,
+        _k: &Kernel,
         _b: &Brep,
         _f: FaceId,
         edges: &[EdgeId],
@@ -904,7 +906,7 @@ fn intersect_ts_bound<O: ClassObject>(
         .surface
         .as_ref()
         .ok_or(SolidError::null_pointer(OP_CURVE))?;
-    let loops = objects.boundary_loops(b, face)?;
+    let loops = objects.boundary_loops(k, b, face)?;
     let fresh;
     let cache = if let Some(cache) = objects.trim_cache(face) {
         cache
@@ -984,7 +986,7 @@ fn intersect_edges<O: ClassObject>(
         .surface
         .as_ref()
         .ok_or(SolidError::null_pointer(OP_CURVE))?;
-    let views = objects.boundary_edges(b, face, edges, has_big_gaps)?;
+    let views = objects.boundary_edges(k, b, face, edges, has_big_gaps)?;
     cc.intersect_edges(
         k,
         &ClassificationGeometry {
