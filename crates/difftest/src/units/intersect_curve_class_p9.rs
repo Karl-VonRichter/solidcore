@@ -269,7 +269,7 @@ fn put_pc(out: &mut Vec<f64>, p: &PointClassification<H>, rectangle: bool) {
         p.src_zone_tol_3d(),
     ]);
 }
-fn cache(i: &Input, pool: &Pool, loops: &[BoundaryLoop<H>]) -> ScResult<TrimSrfCache<H>> {
+fn cache(i: &Input, pool: &Pool, loops: &[BoundaryLoop<H>]) -> TrimSrfCache<H> {
     let mut cache = TrimSrfCache::new(pool.surface.clone(), SurfaceCacheOptions::default());
     let count = if i.state == 4 { 3 } else { 1 };
     let mut tree = Tree::new(None);
@@ -324,7 +324,7 @@ fn cache(i: &Input, pool: &Pool, loops: &[BoundaryLoop<H>]) -> ScResult<TrimSrfC
         5 => FaceContainment::UnderConstruction,
         _ => FaceContainment::Done,
     };
-    Ok(cache)
+    cache
 }
 fn rust(i: &Input) -> ScResult<Output> {
     let k = Kernel::default();
@@ -422,7 +422,7 @@ fn rust(i: &Input) -> ScResult<Output> {
     cc.set_src_zone_tol_3d(i.zone);
     cc.set_doing_cross_hatch(i.cross);
     *cc.at_mut(0)? = CurveInterval::with_interval(&k, &interval, Some(&cc));
-    let cache = cache(i, &pool, &loops)?;
+    let cache = cache(i, &pool, &loops);
     let result = if i.op == 1 {
         cc.intersect_ts_bound(
             &k,

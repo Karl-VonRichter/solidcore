@@ -162,10 +162,10 @@ SC_EXPORT int32_t sc_intersect_curve_class_p9_run(const double* in,int64_t n,dou
     SmTArray<SmEdge*> targets;
     for(int j=0;j<ne;j++) {
         const double* p=in+22+3*nv+10*j; SmCurve* c=nullptr;
-        if(p[8]) c=source; else c=new (&ctx) SmLine(SmPoint3d(scale*p[0],scale*p[1],scale*p[2]),
+        if(p[8]) c=owned.release(); else c=new (&ctx) SmLine(SmPoint3d(scale*p[0],scale*p[1],scale*p[2]),
             SmPoint3d(scale*p[3],scale*p[4],scale*p[5]),3,&ctx);
         SmEdge* e=nullptr; auto st=brep->CreateWireEdgeFromCurve(c,SmExtent1d(p[6],p[7]),e);
-        if(st!=SM_SUCCESS || !e) return SC_ERR_ARG; if(p[8]) owned.release();
+        if(st!=SM_SUCCESS || !e) return SC_ERR_ARG;
         e->SetTolerance(p[9]); targets.Add(e); edges.push_back(e);
     }
     SmCurveClassification cc; cc.SetCurve(source,FALSE); cc.SetSurface1(s);
@@ -174,17 +174,22 @@ SC_EXPORT int32_t sc_intersect_curve_class_p9_run(const double* in,int64_t n,dou
     cc[0]=SmCurveInterval(cc.GetInterval(),&ctx,&cc);
     std::vector<std::unique_ptr<SmVertexList>> vl; std::vector<std::unique_ptr<SmEdgeuseList>> el;
     if(op) {
-        auto* cache=new (&ctx) P9Trim(*s); cache->recipe(*s,loops,state,vl,el);
-        SmCacheMgr::DeleteObjectsCache(s); s->SetCacheObj(cache);
+        std::unique_ptr<P9Trim> cache(new (&ctx) P9Trim(*s));
+        cache->recipe(*s,loops,state,vl,el);
+        SmCacheMgr::DeleteObjectsCache(s); s->SetCacheObj(cache.release());
     }
+    struct CacheGuard {
+        SmSurface* surface;
+        ~CacheGuard() { if(surface) SmCacheMgr::DeleteObjectsCache(surface); }
+    } cache_guard{op?s:nullptr};
     SmStatus status=op?cc.IntersectTSBound(face,in[3]):in[7]?cc.IntersectEdges(targets,*face,FALSE):
         cc.IntersectEdges(targets,*face,in[5],in[6]);
-    std::vector<double> result={double(status),double(cc.GetSize()),cc.GetInterval().GetMin(),cc.GetInterval().GetMax()};
+    std::vector<double> result={status==SM_SUCCESS?0.:double(status),double(cc.GetSize()),cc.GetInterval().GetMin(),cc.GetInterval().GetMax()};
     for(ULONG j=0;j<cc.GetSize();j++) { auto& iv=cc[j]; result.push_back(iv.GetMin()); result.push_back(iv.GetMax());
         pc(result,iv.m_vStart,vertices,edges); pc(result,iv.m_vMid,vertices,edges); pc(result,iv.m_vEnd,vertices,edges);
     }
-    // Clear caches while the externally owned recipe list nodes are still alive.
-    if(op) SmCacheMgr::DeleteObjectsCache(s);
+    // CacheGuard clears the cache before its externally owned list nodes, including
+    // when the native operation throws.
     return sc_copy_out(result.data(),(int64_t)result.size(),out,cap,len);
     SC_CATCH
 }

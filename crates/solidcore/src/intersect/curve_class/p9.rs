@@ -6,6 +6,7 @@
 //! |------|----------|
 //! | [`CurveClassification::intersect_edges`] | `SmCurveClassification::IntersectEdges` |
 //! | [`CurveClassification::intersect_ts_bound`] | `SmCurveClassification::IntersectTSBound` |
+//! | [`CurveClassification::set_doing_cross_hatch`] | `SmCurveClassification::SetDoingCrossHatch` (inline) |
 //!
 //! Deviations: topology is supplied as borrowed views resolved from arena ids, and
 //! the caller supplies the face's trim cache. Cached marks are local ordered lists
