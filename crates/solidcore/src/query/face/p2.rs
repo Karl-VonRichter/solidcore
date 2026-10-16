@@ -83,7 +83,7 @@ use crate::kernel::Kernel;
 use crate::math::{max2, Point2, Point3, Vec3, BIG_DOUBLE, EFF_ZERO, EFF_ZERO_SQRT};
 use crate::query::r#loop::{contains_uv_point, FaceLoop, LoopEdgeuse, LoopFace, UvContainment};
 use crate::surface::surface::{Surface, SurfaceKind};
-use crate::surface::surface_cache::p1::FaceContainment;
+use crate::surface::surface_cache::p1::{FaceContainment, SurfaceCacheOptions};
 use crate::surface::trim_srf_cache::TrimSrfCache;
 use crate::topology::edgeuse::p1 as eu1;
 use crate::topology::face::p2 as fp2;
@@ -909,7 +909,7 @@ fn intersect_ts_bound<O: ClassObject>(
     let cache = if let Some(cache) = objects.trim_cache(face) {
         cache
     } else {
-        fresh = TrimSrfCache::new(surface.clone(), Default::default());
+        fresh = TrimSrfCache::new(surface.clone(), SurfaceCacheOptions::default());
         &fresh
     };
     cc.intersect_ts_bound(

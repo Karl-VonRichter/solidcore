@@ -37,7 +37,16 @@ pub fn validate(input: &[f64]) -> Result<(), FfiError> {
         }
     };
     for (j, &v) in header.iter().take(10).enumerate() {
-        int(v, if j == 2 { 5 } else { 1 })?;
+        int(
+            v,
+            if j == 2 {
+                5
+            } else if j == 1 {
+                2
+            } else {
+                1
+            },
+        )?;
     }
     let nv = int(header[12], 8)?;
     let ne = int(header[13], 8)?;

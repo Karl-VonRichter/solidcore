@@ -507,7 +507,7 @@ mod tests {
     use crate::surface::surface_cache::p1::SurfaceCacheOptions;
     use crate::surface::volume::Volume;
 
-    #[derive(Clone, Copy, PartialEq)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     enum H {
         Source,
         Target,

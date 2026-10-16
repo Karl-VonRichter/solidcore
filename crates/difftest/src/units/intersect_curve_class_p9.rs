@@ -225,7 +225,14 @@ fn surface(i: &Input) -> ScResult<Surface> {
     let net = (0..2)
         .map(|a| {
             (0..2)
-                .map(|b| CPoint::new(i.scale * f64::from(a), i.scale * f64::from(b), 0., NOW))
+                .map(|b| {
+                    CPoint::new(
+                        i.scale * f64::from(a),
+                        i.scale * f64::from(b) * if i.kind == 2 { f64::from(a) } else { 1. },
+                        0.,
+                        NOW,
+                    )
+                })
                 .collect()
         })
         .collect();

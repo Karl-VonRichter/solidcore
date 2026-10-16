@@ -134,6 +134,318 @@
           ]
         ]
       }
+    },
+    {
+      "name": "uv_vertex_at_source_start",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.2,
+            0.5,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "uv_vertex_at_source_end",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.8,
+            0.5,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "uv_vertex_near_source_start",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.1999999,
+            0.5,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "uv_vertex_outside_source",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.19,
+            0.5,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "two_vertex_loops_order",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.35,
+            0.5,
+            0
+          ],
+          [
+            0.65,
+            0.5,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "cached_two_vertex_loops_order",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.35,
+            0.5,
+            0
+          ],
+          [
+            0.65,
+            0.5,
+            0
+          ]
+        ],
+        "state": 4
+      }
+    },
+    {
+      "name": "vertex_subdomain",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.35,
+            0.5,
+            0
+          ]
+        ],
+        "interval": [
+          0.25,
+          0.75
+        ]
+      }
+    },
+    {
+      "name": "uv_hit_but_3d_gap_rejected",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.5,
+            0.5,
+            0.001
+          ]
+        ],
+        "check3d": true
+      }
+    },
+    {
+      "name": "zero_source_zone",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.5,
+            0.5,
+            0
+          ]
+        ],
+        "zone": 0
+      }
+    },
+    {
+      "name": "cached_no_intersecting_nodes",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.5,
+            0.5,
+            0
+          ]
+        ],
+        "source": [
+          [
+            2,
+            2,
+            0
+          ],
+          [
+            3,
+            2,
+            0
+          ]
+        ],
+        "state": 4
+      }
+    },
+    {
+      "name": "singular_vertex_3d_drop",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "kind": 2,
+        "vertices": [
+          [
+            0,
+            0.5,
+            0
+          ]
+        ],
+        "source": [
+          [
+            0,
+            0.2,
+            0
+          ],
+          [
+            0,
+            0.8,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "singular_vertex_checked",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 1,
+        "kind": 2,
+        "vertices": [
+          [
+            0,
+            0.5,
+            0
+          ]
+        ],
+        "source": [
+          [
+            0,
+            0.2,
+            0
+          ],
+          [
+            0,
+            0.8,
+            0
+          ]
+        ],
+        "check3d": true
+      }
+    },
+    {
+      "name": "native_default_uv_parameter",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 0,
+        "dim3": true,
+        "defaults": true,
+        "edges": [
+          {
+            "a": [
+              0.5,
+              0.7,
+              -1
+            ],
+            "b": [
+              0.5,
+              0.7,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "lifted_uv_source_to_3d",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 0,
+        "dim3": false,
+        "uv": false,
+        "edges": [
+          {
+            "a": [
+              0.5,
+              0.7,
+              -1
+            ],
+            "b": [
+              0.5,
+              0.7,
+              1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "lifted_plane_dispatch_gap",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 0,
+        "dim3": false,
+        "uv": false,
+        "kind": 1
+      }
+    },
+    {
+      "name": "same_curve_touching_intervals",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15270-16520 (boundary/tolerance regression)",
+      "inputs": {
+        "op": 0,
+        "dim3": true,
+        "interval": [
+          0.5,
+          1
+        ],
+        "edges": [
+          {
+            "a": [
+              0,
+              0,
+              0
+            ],
+            "b": [
+              1,
+              0,
+              0
+            ],
+            "same": true,
+            "interval": [
+              0,
+              0.5
+            ]
+          }
+        ]
+      }
     }
   ]
 }

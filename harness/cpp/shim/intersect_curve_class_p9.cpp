@@ -93,11 +93,11 @@ void pc(std::vector<double>& out,const SmPointClassification& p,const std::vecto
         p.GetPreSnapParam(),SmTol::GetSrcZoneTol3d(&p).val});
 }
 SmSurface* make_surface(const SmContext& ctx,int kind,double scale) {
-    if(kind) return new (&ctx) SmPlane(SmPoint3d(0,0,0),SmVector3d(1,0,0),SmVector3d(0,1,0),
+    if(kind==1) return new (&ctx) SmPlane(SmPoint3d(0,0,0),SmVector3d(1,0,0),SmVector3d(0,1,0),
         SmVector2d(scale,scale),SmExtent2d(SmPoint2d(0,0),SmPoint2d(1,1)),&ctx);
     auto* n=sm_AllocateNurbSurface(1,1,1,1,3,3);
     for(int i=0;i<2;i++) for(int j=0;j<2;j++) {
-        n->net->Pw[i][j].x=scale*i; n->net->Pw[i][j].y=scale*j;
+        n->net->Pw[i][j].x=scale*i; n->net->Pw[i][j].y=scale*j*(kind==2?i:1);
         n->net->Pw[i][j].z=0; n->net->Pw[i][j].w=NL_NOW;
     }
     for(int j=0;j<4;j++) { n->knu->U[j]=j<2?0:1; n->knv->U[j]=j<2?0:1; }
@@ -108,7 +108,7 @@ SC_EXPORT int32_t sc_intersect_curve_class_p9_run(const double* in,int64_t n,dou
     if(!in || n<22 || !len || cap<0 || (!out && cap)) return SC_ERR_ARG;
     for(int64_t j=0;j<n;j++) if(!std::isfinite(in[j]) || std::abs(in[j])>1e12) return SC_ERR_ARG;
     auto integer=[](double x,int max){ return x>=0 && x<=max && x==std::floor(x); };
-    for(int j=0;j<10;j++) if(!integer(in[j],j==2?5:1)) return SC_ERR_ARG;
+    for(int j=0;j<10;j++) if(!integer(in[j],j==2?5:j==1?2:1)) return SC_ERR_ARG;
     if(!integer(in[12],8)||!integer(in[13],8)||n!=22+3*(int)in[12]+10*(int)in[13]) return SC_ERR_ARG;
     if(in[10]<=0 || in[10]>1e6 || in[11]<0 || in[11]>1 || in[14]>=in[15]) return SC_ERR_ARG;
     if(in[14]<0 || in[15]>1 || (in[0]==1 && (in[8]!=0 || in[13]!=0)) ||
