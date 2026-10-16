@@ -130,15 +130,22 @@ jobs:
         if: steps.green.outputs.any == 'true'
         run: cargo clippy --workspace --all-targets --features difftest/cpp -- -D warnings
 
-      - name: Difftest green units
+      - name: Differential regression and full sensitivity
         if: steps.green.outputs.any == 'true'
-        # Optimised profile (Cargo.toml [profile.difftest]): identical results, about 20x
-        # faster than the debug build that used to take ~35 min here.
-        run: cargo run --profile difftest -p difftest --features cpp -- --green
-
-      - name: Full differential sensitivity
-        if: steps.green.outputs.any == 'true'
-        run: cargo run --profile difftest -p difftest --features cpp -- --green --perturb
+        run: |
+          nice -n 10 cargo build --profile difftest -p difftest --features cpp
+          nice -n 10 bin/difftest/difftest --green > /tmp/default.log 2>&1 &
+          default_pid=$!
+          nice -n 10 bin/difftest/difftest --green --perturb > /tmp/sensitivity.log 2>&1 &
+          sensitivity_pid=$!
+          default_status=0
+          wait "$default_pid" || default_status=$?
+          sensitivity_status=0
+          wait "$sensitivity_pid" || sensitivity_status=$?
+          cat /tmp/default.log
+          cat /tmp/sensitivity.log
+          test "$default_status" -eq 0
+          test "$sensitivity_status" -eq 0
 
       - name: Native dispatch contract tests
         if: steps.green.outputs.any == 'true'
