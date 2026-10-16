@@ -150,7 +150,9 @@ jobs:
 
       - name: Native dispatch contract tests
         if: steps.green.outputs.any == 'true'
-        run: nice -n 10 cargo test -p solidcore-ffi --features cpp dispatch_contract_tests
+        run: |
+          nice -n 10 cargo test -p solidcore-ffi --features cpp dispatch_contract_tests
+          nice -n 10 cargo test -p solidcore-ffi --features cpp surface_cone_p3::tests
 
       - name: Upload differential reports
         if: always()
