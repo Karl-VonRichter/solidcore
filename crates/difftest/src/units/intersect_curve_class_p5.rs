@@ -45,6 +45,7 @@ fn bounds() -> Vec<f64> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)] // Independent native flags are varied separately.
 struct Input {
     op: usize,
     #[serde(default)]
@@ -453,7 +454,7 @@ fn rust(i: &Input) -> ScResult<Output> {
                     b.faces.len() as f64,
                     b.edges.len() as f64,
                     b.vertices.len() as f64,
-                ])
+                ]);
             }),
         5 => cc.merge_intervals(i.flag1).map(|a| {
             out.extend([
@@ -463,7 +464,7 @@ fn rust(i: &Input) -> ScResult<Output> {
                 0.,
                 0.,
                 0.,
-            ])
+            ]);
         }),
         6 => cc.intersect_vertices(
             &k,
@@ -563,7 +564,7 @@ impl UnitDiff for Runner {
             }
             if op == 3 && target == 3 {
                 i.classes = vec![102; 3 * n];
-                i.other_classes = i.classes.clone();
+                i.other_classes.clone_from(&i.classes);
             }
             if op == 6 {
                 i.flag1 = true;
@@ -577,7 +578,7 @@ impl UnitDiff for Runner {
                 } else {
                     rng.unit() * 0.01
                 };
-                for _ in 0..1 + rng.below(4) {
+                for _ in 0..=rng.below(4) {
                     let a = rng.unit();
                     let b = if rng.below(2) == 0 {
                         a + 1e-10

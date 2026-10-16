@@ -92,10 +92,9 @@ pub fn validate(input: &[f64]) -> Result<(), FfiError> {
         return Err(invalid());
     }
 
-    for sol in input.get(at + 6 * n..).ok_or_else(invalid)?.chunks_exact(7) {
-        let &[typ, t0, t1, t2, t3, gap0, gap1] = sol else {
-            return Err(invalid());
-        };
+    for &[typ, t0, t1, t2, t3, gap0, gap1] in
+        input.get(at + 6 * n..).ok_or_else(invalid)?.as_chunks::<7>().0
+    {
         int(typ, 4)?;
         if [t0, t1, t2, t3, gap0, gap1]
             .into_iter()
