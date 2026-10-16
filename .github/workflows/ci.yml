@@ -135,3 +135,11 @@ jobs:
         # Optimised profile (Cargo.toml [profile.difftest]): identical results, about 20x
         # faster than the debug build that used to take ~35 min here.
         run: cargo run --profile difftest -p difftest --features cpp -- --green
+
+      - name: Upload differential reports
+        if: always() && steps.green.outputs.any == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: difftest-reports
+          path: reports/difftest/
+          retention-days: 7
