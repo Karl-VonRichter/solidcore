@@ -4773,6 +4773,254 @@
         "flag1": false,
         "flag3": false
       }
+    },
+    {
+      "name": "extract_isolated_points_0_False_1",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13562 (isolated lower boundaries; weighted point overwritten by source location)",
+      "inputs": {
+        "op": 3,
+        "shape": 0,
+        "target": 3,
+        "flag3": false,
+        "bounds": [
+          0.0,
+          1.0
+        ],
+        "classes": [
+          102,
+          100,
+          102
+        ],
+        "other_classes": [
+          102,
+          100,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_isolated_points_0_False_3",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13562 (isolated lower boundaries; weighted point overwritten by source location)",
+      "inputs": {
+        "op": 3,
+        "shape": 0,
+        "target": 3,
+        "flag3": false,
+        "bounds": [
+          0.0,
+          0.3333333333333333,
+          0.6666666666666666,
+          1.0
+        ],
+        "classes": [
+          102,
+          100,
+          102,
+          102,
+          100,
+          102,
+          102,
+          100,
+          102
+        ],
+        "other_classes": [
+          102,
+          100,
+          102,
+          102,
+          100,
+          102,
+          102,
+          100,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_isolated_points_0_True_1",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13562 (isolated lower boundaries; weighted point overwritten by source location)",
+      "inputs": {
+        "op": 3,
+        "shape": 0,
+        "target": 3,
+        "flag3": true,
+        "bounds": [
+          0.0,
+          1.0
+        ],
+        "classes": [
+          102,
+          100,
+          102
+        ],
+        "other_classes": [
+          102,
+          100,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_isolated_points_0_True_3",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13562 (isolated lower boundaries; weighted point overwritten by source location)",
+      "inputs": {
+        "op": 3,
+        "shape": 0,
+        "target": 3,
+        "flag3": true,
+        "bounds": [
+          0.0,
+          0.3333333333333333,
+          0.6666666666666666,
+          1.0
+        ],
+        "classes": [
+          102,
+          100,
+          102,
+          102,
+          100,
+          102,
+          102,
+          100,
+          102
+        ],
+        "other_classes": [
+          102,
+          100,
+          102,
+          102,
+          100,
+          102,
+          102,
+          100,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_isolated_points_1_False_1",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13562 (isolated lower boundaries; weighted point overwritten by source location)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "flag3": false,
+        "bounds": [
+          0.0,
+          1.0
+        ],
+        "classes": [
+          102,
+          100,
+          102
+        ],
+        "other_classes": [
+          102,
+          100,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_isolated_points_1_False_3",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13562 (isolated lower boundaries; weighted point overwritten by source location)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "flag3": false,
+        "bounds": [
+          0.0,
+          0.3333333333333333,
+          0.6666666666666666,
+          1.0
+        ],
+        "classes": [
+          102,
+          100,
+          102,
+          102,
+          100,
+          102,
+          102,
+          100,
+          102
+        ],
+        "other_classes": [
+          102,
+          100,
+          102,
+          102,
+          100,
+          102,
+          102,
+          100,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_isolated_points_1_True_1",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13562 (isolated lower boundaries; weighted point overwritten by source location)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "flag3": true,
+        "bounds": [
+          0.0,
+          1.0
+        ],
+        "classes": [
+          102,
+          100,
+          102
+        ],
+        "other_classes": [
+          102,
+          100,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_isolated_points_1_True_3",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13562 (isolated lower boundaries; weighted point overwritten by source location)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "flag3": true,
+        "bounds": [
+          0.0,
+          0.3333333333333333,
+          0.6666666666666666,
+          1.0
+        ],
+        "classes": [
+          102,
+          100,
+          102,
+          102,
+          100,
+          102,
+          102,
+          100,
+          102
+        ],
+        "other_classes": [
+          102,
+          100,
+          102,
+          102,
+          100,
+          102,
+          102,
+          100,
+          102
+        ]
+      }
     }
   ]
 }
