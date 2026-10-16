@@ -4763,6 +4763,16 @@
           100
         ]
       }
+    },
+    {
+      "name": "uv_curve_in_3d_on_analytic_plane_dispatch",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14678 (2D curve-on-surface setup before the vertex loop)",
+      "inputs": {
+        "op": 6,
+        "dim2": true,
+        "flag1": false,
+        "flag3": false
+      }
     }
   ]
 }
