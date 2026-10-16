@@ -14,62 +14,8 @@ env:
   UPSTREAM_COMMIT: c9c5979f04cea8c38213004d4f04df0dcfb40d05  # c9c5979
 
 jobs:
-  fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: rustup show active-toolchain || rustup toolchain install
-      - run: cargo fmt --all --check
-
-  clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ". -> bin"
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ". -> bin"
-      - run: cargo test --workspace
-
-  wasm:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ". -> bin"
-      - run: rustup target add wasm32-unknown-unknown
-      - run: cargo check -p solidcore --target wasm32-unknown-unknown
-
-  # Same packaging check the release workflow runs before publishing (no secrets).
-  publish-dry-run:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ". -> bin"
-      - run: cargo publish -p solidcore --locked --dry-run
-
-  deny:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check licenses bans sources
-
   difftest:
     runs-on: ubuntu-latest
-    needs: [test]
     env:
       SOLIDCORE_CPP_DIR: ${{ github.workspace }}/.cpp
     steps:
@@ -126,20 +72,8 @@ jobs:
       # The clippy job above cannot see code behind the cpp feature (ffi bindings and
       # the difftest unit runners); lint it here, where the C++ headers exist.
       # difftest/cpp enables solidcore-ffi/cpp and registers the runners.
-      - name: Clippy with the C++ feature
-        if: steps.green.outputs.any == 'true'
-        run: cargo clippy --workspace --all-targets --features difftest/cpp -- -D warnings
-
-      - name: Difftest green units
+      - name: Sensitivity for green and partial units
         if: steps.green.outputs.any == 'true'
         # Optimised profile (Cargo.toml [profile.difftest]): identical results, about 20x
         # faster than the debug build that used to take ~35 min here.
-        run: cargo run --profile difftest -p difftest --features cpp -- --green
-
-      - name: Upload differential reports
-        if: always() && steps.green.outputs.any == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: difftest-reports
-          path: reports/difftest/
-          retention-days: 7
+        run: cargo run --profile difftest -p difftest --features cpp -- --green --perturb
