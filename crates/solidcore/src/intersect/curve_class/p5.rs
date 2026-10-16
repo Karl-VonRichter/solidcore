@@ -673,8 +673,8 @@ pub fn insert_solutions<O: ClassObject>(
             let mut do_insertion = true;
             if classification.ignore_tangency() {
                 if let Some(target) = target {
-                    let a = source.evaluate(sol.start.param(0)?, 1, true, false)?;
-                    let b = target.evaluate(sol.start.param(1)?, 1, true, false)?;
+                    let a = source.evaluate(sol.start.param(0)?, 1, true, true)?;
+                    let b = target.evaluate(sol.start.param(1)?, 1, true, true)?;
                     let ta = a.get(1).copied().ok_or(SolidError::sm_err(OP))?;
                     let tb = b.get(1).copied().ok_or(SolidError::sm_err(OP))?;
                     let mut angle = tb.angle_between(ta).unwrap_or(1.0);

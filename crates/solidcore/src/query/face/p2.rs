@@ -56,11 +56,11 @@
 //!   `SmFace::GetTolerance`).
 //! - **`SmProtoVertex`** keeps no pointer to its manager; the manager is passed.
 //! - **`CurveOnClassify`** stores handles of the caller's choosing in the curve
-//!   classification; [`CurveOnClassifyObjects`] makes the face and surface handles and
+//!   classification; [`CurveOnClassifyObjects`] makes face, surface and vertex handles and
 //!   resolves curve and loop handles, and the caller's [`ClassGeometry`] resolves them
-//!   for `ClassifyFaceInterval` (`lFaceIndx` left at its default). Its callees `SmCurveClassification::ReSet`
-//!   (`intersect.curve_class_p2`), `IntersectTSBound` / `IntersectEdges`
-//!   (`intersect.curve_class_p9`), `IntersectVertices` (`intersect.curve_class_p5`)
+//!   for `ClassifyFaceInterval` (`lFaceIndx` left at its default) and
+//!   `IntersectVertices`. `ReSet` and `IntersectVertices` call parts 2 and 5.
+//!   `IntersectTSBound` / `IntersectEdges` (`intersect.curve_class_p9`)
 //!   and `SmFace::GetEdges`
 //!   (`topology.face_p4`) return [`SolidError::Unported`]. `pbOptModifiedCurve` is the
 //!   result.
@@ -665,6 +665,8 @@ pub fn proto_vertex_contains_point<O: ClassObject>(
 pub trait CurveOnClassifyObjects<O> {
     /// The handle of face `f` (`this`).
     fn face(&self, f: FaceId) -> O;
+    /// The classification handle of vertex `v`.
+    fn vertex(&self, v: VertexId) -> O;
     /// The handle of face `f`'s surface (`GetSurface()`), `None` without one.
     fn surface(&self, f: FaceId) -> Option<O>;
     /// The curve behind a curve handle.
@@ -682,8 +684,7 @@ pub trait CurveOnClassifyObjects<O> {
 ///
 /// # Errors
 ///
-/// [`SolidError::Unported`]: `SmCurveClassification::ReSet` (`intersect.curve_class_p2`)
-/// and the boundary intersections and interval classification (see the module
+/// [`SolidError::Unported`]: boundary intersections and interval classification (see the module
 /// Deviations); `SM_ERR` when the trim boundary intersection fails;
 /// [`SolidError::InvalidInput`] for a classification without (resolvable) curve or an
 /// unresolvable target loop.
@@ -700,7 +701,7 @@ pub fn curve_on_classify<O: ClassObject>(
     uv_space_okay: bool,
 ) -> Result<bool> {
     // init output
-    reset_classification(cc)?;
+    cc.reset(k, &crate::intersect::curve_class::ResetOptions::default())?;
     cc.set_face(Some(objects.face(f)));
     let mut modified = false;
 
@@ -713,7 +714,7 @@ pub fn curve_on_classify<O: ClassObject>(
                 continue;
             }
             modified = true;
-            reset_classification(cc)?;
+            cc.reset(k, &crate::intersect::curve_class::ResetOptions::default())?;
         }
 
         let curve = classification_curve(objects, cc)?;
@@ -743,7 +744,11 @@ pub fn curve_on_classify<O: ClassObject>(
                 .surface
                 .as_ref()
                 .ok_or_else(|| null(OP_CURVE, "face without surface"))?;
-            intersect_vertices(cc, &vertices, surface, has_big_gaps)?;
+            let vertices = vertices
+                .iter()
+                .map(|&v| objects.vertex(v))
+                .collect::<Vec<_>>();
+            cc.intersect_vertices(k, objects, &vertices, surface, has_big_gaps, true)?;
 
             // 2nd intersect face edges with the curve
             let edges = face_edges(b, f, cc.tgt_loops_only(), Some(&tgt_loops))?;
@@ -805,15 +810,6 @@ fn classification_curve<'o, O: ClassObject>(
         .ok_or_else(|| null(OP_CURVE, "classification without curve"))
 }
 
-/// `SmCurveClassification::ReSet`.
-fn reset_classification<O>(_cc: &mut CurveClassification<O>) -> Result<()> {
-    // UNPORTED(intersect.curve_class_p2): SmCurveClassification::ReSet
-    Err(SolidError::unported(
-        "SmCurveClassification::ReSet",
-        "intersect.curve_class_p2",
-    ))
-}
-
 /// `SmCurveClassification::IntersectTSBound(this, bDoCheck3d)`.
 fn intersect_ts_bound<O>(
     _cc: &mut CurveClassification<O>,
@@ -824,20 +820,6 @@ fn intersect_ts_bound<O>(
     Err(SolidError::unported(
         "SmCurveClassification::IntersectTSBound",
         "intersect.curve_class_p9",
-    ))
-}
-
-/// `SmCurveClassification::IntersectVertices(vertices, surface, bHasBigGaps)`.
-fn intersect_vertices<O>(
-    _cc: &mut CurveClassification<O>,
-    _vertices: &[VertexId],
-    _surface: &Surface,
-    _has_big_gaps: bool,
-) -> Result<()> {
-    // UNPORTED(intersect.curve_class_p5): SmCurveClassification::IntersectVertices
-    Err(SolidError::unported(
-        "SmCurveClassification::IntersectVertices",
-        "intersect.curve_class_p5",
     ))
 }
 

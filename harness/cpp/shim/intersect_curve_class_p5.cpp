@@ -716,38 +716,55 @@ void put_cc(std::vector<double>& out, const SmCurveClassification& cc, SmObject*
 // All counts, codes and numeric limits are validated by the safe Rust wrapper before
 // entry. Reject malformed direct C calls too; never walk caller-declared arrays early.
 SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in, double* out, int64_t cap, int64_t* out_len) {
-    if (!in || !out_len || n_in < 15 || cap < 0 || (!out && cap)) return SC_ERR_ARG;
+    if (!in || !out_len || n_in < 16 || cap < 0 || (!out && cap)) return SC_ERR_ARG;
     SC_TRY
     auto integer = [](double v, int max) { return std::isfinite(v) && v >= 0 && v <= max && v == std::floor(v); };
-    if (!integer(in[0],6) || !integer(in[1],1) || !integer(in[2],1) || !integer(in[3],1) ||
+    if (!integer(in[0],6) || !integer(in[1],4) || !integer(in[2],1) || !integer(in[3],1) ||
         !integer(in[4],1) || !integer(in[5],1) || !integer(in[6],1) || !integer(in[7],3) ||
-        !integer(in[8],1) || !integer(in[12],32) || !integer(in[13],32)) return SC_ERR_ARG;
-    int op=in[0], shape=in[1], dim=2+in[2], target_kind=in[7], index=in[8], n=in[12], ns=in[13];
-    if (n_in != 15 + 2*(n+1) + 6*n + 7*ns) return SC_ERR_ARG;
+        !integer(in[8],1) || !integer(in[12],32) || !integer(in[13],32) || !integer(in[15],32)) return SC_ERR_ARG;
+    int op=in[0], shape=in[1], dim=2+in[2], target_kind=in[7], index=in[8], n=in[12], ns=in[13], other_n=in[15];
+    if (n_in != 18 + 4*(n+other_n) + 7*ns) return SC_ERR_ARG;
     for (int64_t j=0;j<n_in;j++) if (!std::isfinite(in[j]) || std::abs(in[j])>1e21) return SC_ERR_ARG;
     double scale=in[9], tol=in[10], angle=in[11], opt_tol=in[14];
-    if (scale<=0 || scale>1e6 || tol<0 || tol>1 || opt_tol < -1 || opt_tol > 1) return SC_ERR_ARG;
-    const double* bounds=in+15;
+    if (scale<=0 || scale>1e6 || tol<0) return SC_ERR_ARG;
+    const double* bounds=in+16;
     const double* other_bounds=bounds+n+1;
-    const double* classes=other_bounds+n+1;
-    const double* sols=classes+6*n;
-    for(int side=0;side<2;side++) for(int j=0;j<n;j++) {
+    const double* classes=other_bounds+other_n+1;
+    const double* sols=classes+3*(n+other_n);
+    for(int side=0;side<2;side++) for(int j=0;j<(side?other_n:n);j++) {
         const double* b=side ? other_bounds : bounds;
-        if (b[j]<0 || b[j+1]>1 || b[j]>=b[j+1]) return SC_ERR_ARG;
+        if (b[j]>=b[j+1]) return SC_ERR_ARG;
     }
-    for(int j=0;j<6*n;j++) if (!integer(classes[j]-100,10)) return SC_ERR_ARG;
+    for(int j=0;j<3*(n+other_n);j++) if (!integer(classes[j]-100,10)) return SC_ERR_ARG;
     for(int j=0;j<ns;j++) if (!integer(sols[7*j],4)) return SC_ERR_ARG;
     // Topology mutation requires arena-backed native objects. This harness supports
     // the skip paths of merging; never call MergeInterval on a bare stand-in face.
-    if(op==4 || op==5) for(int j=0;j<6*n;j++) if(classes[j]>=101 && classes[j]<=104) return SC_ERR_ARG;
+    if(op==4 || op==5) for(int j=0;j<3*(n+other_n);j++) if(classes[j]>=101 && classes[j]<=104) return SC_ERR_ARG;
     if((op==0 || op==1) && n==0 && ns>0) return SC_ERR_ARG;
     if(op==6 && in[4] && in[5]) return SC_ERR_ARG; // no vertexuse on the standalone vertex
-    if(op==3 && n==0) return SC_ERR_ARG; // Homogenize reads interval zero.
+    if(op==4 && n!=other_n) return SC_ERR_ARG; // paired merge indexes both arrays together
+    if(op==3 && (n==0 || other_n==0)) return SC_ERR_ARG; // Homogenize reads interval zero.
     SmContext ctx;
     std::unique_ptr<SmCurve> curve;
-    if(shape==0) curve.reset(new (&ctx) SmLine(SmPoint3d(0,0,0),SmPoint3d(scale,0,0),dim,&ctx));
+    if(shape!=1) curve.reset(new (&ctx) SmLine(SmPoint3d(0,0,0),SmPoint3d(scale,0,0),dim,&ctx));
     else curve.reset(new (&ctx) SmCircle(SmPoint3d(0,0,0),SmVector3d(1,0,0),SmVector3d(0,1,0),SmExtent1d(0,360),scale,dim,&ctx));
     auto target_curve=std::unique_ptr<SmCurve>(new (&ctx) SmLine(SmPoint3d(0,0,0),SmPoint3d(scale*std::cos(angle),scale*std::sin(angle),0),dim,&ctx));
+    // Quadratic x(t)=.5+(t-.5)^2: the first tangent vanishes at t=.5.
+    auto stationary = [&](double rotation) -> std::unique_ptr<SmCurve> {
+        gw_CURVE* c=sm_AllocateNurbCurve(2,2,5);
+        if(!c) return nullptr;
+        const double x[]={.75,.25,.75};
+        for(int j=0;j<3;j++) {
+            c->pol->Pw[j].x=x[j]*scale*std::cos(rotation);
+            c->pol->Pw[j].y=x[j]*scale*std::sin(rotation);
+            c->pol->Pw[j].z=0; c->pol->Pw[j].w=1;
+        }
+        for(int j=0;j<6;j++) c->knt->U[j]=j<3?0:1;
+        return std::unique_ptr<SmCurve>(new (&ctx) SmBSplineCurve(c,dim,FALSE));
+    };
+    if(shape==2 || shape==4) curve=stationary(0);
+    if(shape==3 || shape==4) target_curve=stationary(angle);
+    if(!curve || !target_curve) return SC_ERR_ARG;
     auto plane=std::unique_ptr<SmPlane>(new (&ctx) SmPlane(SmPoint3d(0,0,0),SmVector3d(0,0,1),&ctx));
     // An owner is required even for an empty IntersectVertices call (GetOwner()->IsKindOf).
     ScFace face(plane.get());
@@ -764,17 +781,17 @@ SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in
     if(op==3 && (uv1->MakeNurb()!=SM_SUCCESS || uv2->MakeNurb()!=SM_SUCCESS)) return SC_ERR_ARG;
     SmCurveClassification cc[2];
     for(int side=0;side<2;side++) {
-        auto& c=cc[side]; const double* b=side ? other_bounds : bounds;
+        auto& c=cc[side]; const double* b=side ? other_bounds : bounds; int count=side?other_n:n;
         c.SetCurve(curve.get(),FALSE); SmTol::SetZoneTol3d(&c,SmZoneTol3d(tol)); c.SetIgnoreTangency(in[3]);
         if(op==3 && ((side==0 && in[4]) || (side==1 && in[5]))) c.SetUVCurve1(side==0?uv1.get():uv2.get());
-        c.SetSize(n); c.SetInterval(SmExtent1d(b[0],b[n]));
-        for(int j=0;j<n;j++) {
+        c.SetSize(count); c.SetInterval(SmExtent1d(b[0],b[count]));
+        for(int j=0;j<count;j++) {
             // Match the Rust fixture's explicitly owned interval construction;
             // SetSize alone default-constructs intervals without the source zone.
             c[j]=SmCurveInterval(SmExtent1d(b[j],b[j+1]),&ctx,&c);
             SmPointClassification* pcs[]={&c[j].m_vStart,&c[j].m_vMid,&c[j].m_vEnd};
             for(int k=0;k<3;k++) {
-                int cl=classes[side*3*n+3*j+k];
+                int cl=classes[(side?3*n:0)+3*j+k];
                 if(cl!=100 && cl!=110 && cl!=106 && cl!=107 && cl!=104 && cl!=102) return SC_ERR_ARG;
                 pcs[k]->SetClassObject((SmPointClassificationType)cl,(cl==100 || cl==110)?NULL:target);
             }
@@ -793,7 +810,7 @@ SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in
     // tangency branch. Keep those valid calls; only reject ranges that remain ranges
     // and would dereference its null pEdgeCurve. This check uses the same native
     // endpoint and six-segment length tests, without changing the solution.
-    if(op==0 && in[3]) for(ULONG j=0;j<solutions.GetSize();j++) {
+    if(op==0 && target_kind<=1 && in[3]) for(ULONG j=0;j<solutions.GetSize();j++) {
         SmSolution& s=solutions[j];
         if(s.m_eSolutionType!=SM_ST_RANGE_OF_VALUES || s.m_vStart[0]>s.m_vEnd[0] ||
            (s.m_vEnd[0]-s.m_vStart[0])/(bounds[n]-bounds[0])>=.05) continue;

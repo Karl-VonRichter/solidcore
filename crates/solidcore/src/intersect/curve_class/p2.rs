@@ -71,10 +71,10 @@ use crate::intersect::point_class::{
 use crate::kernel::Kernel;
 use crate::math::{Point2, Point3, Vec3};
 
+use super::curve_is_degenerate;
 use super::p1::{
     xsect_tol_2d_or_3d_for_classify_pair, CurveClassification, CurveInterval, IntervalPosition,
 };
-use super::curve_is_degenerate;
 
 const OP_CC: &str = "intersect::curve_class::p2::CurveClassification";
 const OP_INSERT: &str = "intersect::curve_class::p2::insert_at";

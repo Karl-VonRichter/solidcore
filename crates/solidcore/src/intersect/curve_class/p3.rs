@@ -216,9 +216,9 @@ pub(super) fn are_coincident_maybe<O: ClassObject>(
     let (coin, end) = cc.are_coincident_maybe(k, geometry, other, index, true)?;
     Ok((
         match coin {
-            super::CoincidentMaybe::No => Coincident::No,
-            super::CoincidentMaybe::Fixable => Coincident::Yes,
-            super::CoincidentMaybe::Unsure => Coincident::Unsure,
+            CoincidentMaybe::No => Coincident::No,
+            CoincidentMaybe::Fixable => Coincident::Yes,
+            CoincidentMaybe::Unsure => Coincident::Unsure,
         },
         end,
     ))

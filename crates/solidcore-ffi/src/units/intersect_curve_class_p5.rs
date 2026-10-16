@@ -1,10 +1,10 @@
 //! Native oracle for `intersect.curve_class_p5` (`SmCurveClass.cpp`).
 //!
 //! Flat input: `op shape dim_minus_2 ignore flag1 flag2 flag3 target index scale
-//! source_zone angle n_intervals n_solutions optional_xsect_tol`, followed by both
-//! classifications' `n+1` boundaries, both classifications' `3*n` point-class codes,
+//! source_zone angle n_intervals n_solutions optional_xsect_tol other_n_intervals`, followed by both
+//! classifications' boundaries, then their point-class codes (`3` per interval),
 //! then solutions (`type start_t start_other end_t end_other start_gap end_gap`).
-//! A negative optional tolerance selects upstream's default. Shapes are line/circle;
+//! A negative optional tolerance selects upstream's default. Shapes are line/circle, or a stationary quadratic source/target/both;
 //! targets are real line/plane/vertex/face. Counts and native undefined branches are
 //! checked before entry. Output contains status, operation outputs, both full interval
 //! states and every mutable solution end. No native pointers cross the boundary.
@@ -36,8 +36,8 @@ pub fn validate(input: &[f64]) -> Result<(), FfiError> {
     if input.iter().any(|x| !x.is_finite() || x.abs() > 1e21) {
         return Err(invalid());
     }
-    let &[op, shape, dim, ignore, flag1, flag2, flag3, target, index, scale, tol, _angle, n, ns, opt_tol] =
-        input.first_chunk::<15>().ok_or_else(invalid)?;
+    let &[op, shape, dim, ignore, flag1, flag2, flag3, target, index, scale, tol, _angle, n, ns, _opt_tol, other_n] =
+        input.first_chunk::<16>().ok_or_else(invalid)?;
     let int = |x: f64, max: u32| -> Result<usize, FfiError> {
         if x < 0.0 || x > f64::from(max) || x.fract() != 0.0 {
             return Err(invalid());
@@ -45,7 +45,7 @@ pub fn validate(input: &[f64]) -> Result<(), FfiError> {
         Ok(x as usize)
     };
     let op = int(op, 6)?;
-    int(shape, 1)?;
+    int(shape, 4)?;
     int(dim, 1)?;
     for flag in [ignore, flag1, flag2, flag3] {
         int(flag, 1)?;
@@ -54,25 +54,24 @@ pub fn validate(input: &[f64]) -> Result<(), FfiError> {
     int(index, 1)?;
     let n = int(n, 32)?;
     let ns = int(ns, 32)?;
-    if input.len() != 15 + 2 * (n + 1) + 6 * n + 7 * ns
+    let other_n = int(other_n, 32)?;
+    if input.len() != 18 + 4 * (n + other_n) + 7 * ns
         || scale <= 0.0
         || scale > 1e6
-        || !(0.0..=1.0).contains(&tol)
-        || !(-1.0..=1.0).contains(&opt_tol)
+        || tol < 0.0
     {
         return Err(invalid());
     }
-    for side in 0..2 {
-        let start = 15 + side * (n + 1);
-        let bounds = input.get(start..start + n + 1).ok_or_else(invalid)?;
-        if bounds.iter().any(|x| !(0.0..=1.0).contains(x))
-            || bounds.windows(2).any(|w| matches!(w,[a,b] if a>=b))
+    for (start, count) in [(16, n), (17 + n, other_n)] {
+        let bounds = input.get(start..start + count + 1).ok_or_else(invalid)?;
+        if bounds.windows(2).any(|w| matches!(w,[a,b] if a>=b))
         {
             return Err(invalid());
         }
     }
-    let at = 15 + 2 * (n + 1);
-    let classes = input.get(at..at + 6 * n).ok_or_else(invalid)?;
+    let at = 18 + n + other_n;
+    let class_count = 3 * (n + other_n);
+    let classes = input.get(at..at + class_count).ok_or_else(invalid)?;
     for &class in classes {
         let valid = class == 100.0
             || class == 110.0
@@ -85,21 +84,19 @@ pub fn validate(input: &[f64]) -> Result<(), FfiError> {
         }
     }
     if ((op == 0 || op == 1) && n == 0 && ns > 0)
-        || (op == 3 && n == 0)
+        || (op == 3 && (n == 0 || other_n == 0))
+        || (op == 4 && n != other_n)
         || (op == 6 && flag1 != 0.0 && flag2 != 0.0)
-        || (op == 0 && target > 1)
     {
         return Err(invalid());
     }
 
     for &[typ, t0, t1, t2, t3, gap0, gap1] in
-        input.get(at + 6 * n..).ok_or_else(invalid)?.as_chunks::<7>().0
+        input.get(at + class_count..).ok_or_else(invalid)?.as_chunks::<7>().0
     {
         int(typ, 4)?;
-        if [t0, t1, t2, t3, gap0, gap1]
-            .into_iter()
-            .any(|x| !(0.0..=1.0).contains(&x))
-        {
+        let _ = (t0, t1, t2, t3); // Finite curve parameters may span any subdomain.
+        if gap0 < 0.0 || gap1 < 0.0 {
             return Err(invalid());
         }
     }
@@ -131,7 +128,7 @@ mod tests {
     fn rejects_malformed_lengths_counts_and_null_edge_tangency() {
         assert!(run(&[]).is_err());
         let mut v = vec![
-            0., 0., 1., 1., 0., 0., 0., 0., 0., 1., 0., 0., 1., 1., -1., 0., 1., 0., 1., 100.,
+            0., 0., 1., 1., 0., 0., 0., 0., 0., 1., 0., 0., 1., 1., -1., 1., 0., 1., 0., 1., 100.,
             100., 100., 100., 100., 100., 2., 0., 0., 0.001, 0.001, 0., 0.,
         ];
         assert!(run(&v).is_err());

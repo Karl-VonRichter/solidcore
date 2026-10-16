@@ -5482,8 +5482,8 @@ with the runner-only profile override. No platform prerequisites enter this PR.
   (PRs #85/#65) and p6 (PR #138); their implementations are merged rather than
   duplicated. The part-3 insertion, point-index/mate, coincidence and interval
   editing back-edges now use those implementations. Face `CurveOnClassify`
-  uses real reset and interval classification; its nonempty vertex list still
-  needs a `VertexId`-to-classification-handle mapping. No p5-tagged stubs remain.
+  uses real reset and interval classification; its nonempty vertex list is mapped through the caller-provided
+  `CurveOnClassifyObjects::vertex` method. No p5-tagged stubs remain.
 - **Native coverage.** The oracle constructs real lines/circles in 2D and 3D,
   line/plane targets, standalone vertices and a real face owner. It compares the
   complete interval/point-classification state, mutable solution records, and
@@ -5493,6 +5493,13 @@ with the runner-only profile override. No platform prerequisites enter this PR.
   thresholds, optional UV/isolated-point outputs, vertex projection, endpoint
   repairs and merge skip paths. Generated cases use fixed seeds and scales
   1e-6, 1 and 1e6. No absolute floors are added.
+- **Uncertified branches (review #5546534396).** `FixupClassification` is compared
+  only as a no-op: the fixture has no arena-backed EDGE (103) endpoint. Both merge
+  APIs compare skip paths only; classes 101–104 are excluded from operations 4/5,
+  so topology mutation and the non-skip merge control flow are not certified.
+  Nonempty large-gap `IntersectVertices` projection (including vertexuse lookup)
+  is not compared. Passing fixtures do not certify any of those paths. The review
+  fixtures now permit different interval counts and exercise `Homogenize` that way.
 - **Integration limits.** Opaque edge handles cannot resolve mutable B-rep
   ownership for edge snapping/refinement. The SSS vertex-refinement block
   (`SmCurveClass.cpp:14812–15082`) edits the intersection curve and clears UV
@@ -5504,6 +5511,19 @@ with the runner-only profile override. No platform prerequisites enter this PR.
   only a B-spline surface, so the explicit analytic-plane fixture defers on the
   `curve.crv_on_surf` type boundary, as in surface part 11. These topology/SSS paths and
   nonempty large-gap vertexuses are not certified by the numerical comparisons.
+- **Review #5546534396 follow-up.** Both ignore-tangency evaluations explicitly
+  request nonzero tangents, matching `SmCurve.h:396`. The new quadratic B-spline
+  fixtures put an exact zero first derivative at parameter 0.5 on either operand
+  and both operands, in 2D/3D with tangency filtering on/off. Upstream's B-spline
+  one-derivative fallback recursively takes its subclass default `FALSE`
+  (`SmBSplineCurve.cpp:3087–3091`); the existing Rust evaluator preserves that
+  quirk, so these cases compare the actual native result rather than assume the
+  tangent becomes nonzero. Bounds/parameters now admit full circle domains, gaps
+  and tolerances are no longer restricted to one, and unsupported insertion
+  targets are compared as native `SM_ERR` results. Paired merge arrays retain
+  their documented equal-length precondition; extraction accepts distinct counts.
+  Dependency heads are updated without replacing their owners' unit statuses or
+  notes. The carried `InsertAt(0)` issue is UB-133; UB-125/126/127 remain unchanged.
 - **Review corrections.** Paired classifications reject shorter or longer
   interval arrays before mutation, with focused regression tests. Extraction
   slices analytic UV subclasses to their native B-spline base and preserves the

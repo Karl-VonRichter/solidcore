@@ -19,6 +19,8 @@ use solidcore::intersect::point_class::{
 };
 use solidcore::kernel::Kernel;
 use solidcore::math::Vec3;
+use solidcore::nurbs::b_spline_curve::BSplineCurve;
+use solidcore::nurbs::math::CPoint;
 use solidcore::surface::plane::Plane;
 use solidcore::surface::surface::Surface;
 use solidcore::surface::volume::Volume;
@@ -87,6 +89,8 @@ struct Input {
 impl Input {
     fn flat(&self) -> Vec<f64> {
         let n = self.bounds.len().saturating_sub(1);
+        let other_bounds = self.other_bounds.as_ref().unwrap_or(&self.bounds);
+        let other_n = other_bounds.len().saturating_sub(1);
         let mut out = vec![
             self.op as f64,
             self.shape as f64,
@@ -103,12 +107,13 @@ impl Input {
             n as f64,
             self.solutions.len() as f64,
             self.xsect_tol,
+            other_n as f64,
         ];
         out.extend(&self.bounds);
-        out.extend(self.other_bounds.as_ref().unwrap_or(&self.bounds));
-        for c in [&self.classes, &self.other_classes] {
+        out.extend(other_bounds);
+        for (c, count) in [(&self.classes, n), (&self.other_classes, other_n)] {
             if c.is_empty() {
-                out.extend(std::iter::repeat_n(100., 3 * n));
+                out.extend(std::iter::repeat_n(100., 3 * count));
             } else {
                 out.extend(c.iter().map(|x| f64::from(*x)));
             }
@@ -317,9 +322,20 @@ fn status(e: &SolidError) -> f64 {
     }
 }
 
+fn stationary_curve(dim: u64, scale: f64, angle: f64) -> ScResult<Curve> {
+    let points = [0.75, 0.25, 0.75].map(|x| {
+        CPoint::new(x * scale * angle.cos(), x * scale * angle.sin(), 0., 1.)
+    });
+    Ok(Curve::from(BSplineCurve::from_data(
+        dim, 2, 5, 2, &points, &[0., 0., 0., 1., 1., 1.],
+    )?))
+}
+
 fn rust(i: &Input) -> ScResult<Output> {
     let k = Kernel::default();
-    let source = if i.shape == 0 {
+    let source = if i.shape == 2 || i.shape == 4 {
+        stationary_curve(if i.dim2 { 2 } else { 3 }, i.scale, 0.)?
+    } else if i.shape != 1 {
         Curve::from(Line::bounded(
             Vec3::ZERO,
             Vec3::new(1., 0., 0.),
@@ -346,7 +362,9 @@ fn rust(i: &Input) -> ScResult<Output> {
     };
     let pool = Pool {
         source,
-        target: Curve::from(Line::bounded(
+        target: if i.shape == 3 || i.shape == 4 {
+            stationary_curve(if i.dim2 { 2 } else { 3 }, i.scale, i.angle)?
+        } else { Curve::from(Line::bounded(
             Vec3::ZERO,
             Vec3::new(i.angle.cos(), i.angle.sin(), 0.),
             &Extent1d::from_min_max(0., 1.),
@@ -355,7 +373,7 @@ fn rust(i: &Input) -> ScResult<Output> {
                 dim: if i.dim2 { 2 } else { 3 },
                 ..BoundedLineOptions::default()
             },
-        )),
+        )) },
         plane: Surface::from(Plane::from_normal(Vec3::ZERO, Vec3::new(0., 0., 1.))),
         vertex: Vec3::new(i.angle * i.scale, 0., 0.),
         uv1: Curve::from(Line::bounded(
