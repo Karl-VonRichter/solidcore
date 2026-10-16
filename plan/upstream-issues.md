@@ -964,7 +964,7 @@ meantime, whoever merges renumbers the new entry and every reference to it (here
 - **Severity:** crash/UB.
 - **Rust port:** Treats a point like any other non-topology object (system zone tolerance, not connected, not mergeable).
 
-#### UB-98. `SmCurveClassification::InsertAt(0, ..)` into a non-empty classification never ends its shift loop
+#### UB-133. `SmCurveClassification::InsertAt(0, ..)` into a non-empty classification never ends its shift loop
 - **Location:** `SmCurveClass.cpp:5349` (`InsertAt`: `for(i1=m_lSize-1,ii=i1-nCount;ii>=nIndex;ii--,i1--)`).
 - **What happens:** `ii` and `nIndex` are `ULONG`. With `nIndex == 0` the test `ii >= 0` is always true: after `ii = 0` the loop decrements `ii` to `ULONG_MAX` and copies `m_pData[ULONG_MAX]` into `m_pData[0]`, then keeps walking down memory.
 - **Trigger:** `InsertAt(0, interval)` on a classification with at least one interval.
@@ -1232,6 +1232,15 @@ meantime, whoever merges renumbers the new entry and every reference to it (here
 - **Confirmed:** yes: SIGSEGV in `SmBSplineCurve::Evaluate`, called by `SmTol::MapTo1d`, `SmBSplineCurve::Trim` and `SmCurveClassification::ExtractGeometry`. The oracle now materializes both UV line NURBs before calling the upstream method; the fixed regression retains the input.
 - **Severity:** crash / undefined behaviour.
 - **Rust port:** materializes a line's B-spline base before slicing it, returning an error if that fails.
+
+#### UB-122. `SmCurveClassification::MergeInterval` dereferences an unresolved start vertex
+- **Location:** `source/SMLib/src/SmCurveClass.cpp:17300-17347` (UNKNOWN start recovery), `:17650-17679` (unchecked `pStartV`).
+- **What happens:** An UNKNOWN start remains without an object when the interior is EDGE or VERTEX, or when projection onto a FACE interior fails. Full nondegenerate merging still casts that object to `SmVertex*` and dereferences it while checking its point or obtaining its B-rep.
+- **Trigger:** Unit line, interval `[0,1]`, classifications UNKNOWN/EDGE/UNKNOWN, full merge and either fillet flag. A stored start point `(10,10,10)` with UNKNOWN/FACE/UNKNOWN on the fixture's unit box also fails to project and leaves the start unresolved.
+- **How found:** PR #138 port audit: 6,860 isolated merge probes found 64 native SIGSEGVs; follow-up stored-point probes exposed failed FACE projection. Regression tests cover both causes, successful FACE projection, vertices-only merging and constant-curve early returns.
+- **Confirmed:** yes, native subprocesses terminated with SIGSEGV before the oracle preflight was added.
+- **Severity:** crash.
+- **Rust port:** Topology mutation remains explicitly deferred at p2. The native oracle rejects unresolved-start full merges, preserving degenerate and vertices-only paths; rejected fixtures are not differential passes.
 
 ## Hang
 

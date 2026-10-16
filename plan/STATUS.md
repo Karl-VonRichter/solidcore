@@ -957,9 +957,8 @@ perturbation also pass (6,463/6,463 detected). Committed reports total 435,272 c
 
 ## Curve-classification interval integration (2026-10-16, PR #138)
 
-Before the p2/p7 integration in PR #141, `intersect.curve_class_p6` was partial:
-787 cases, 281 bit-identical comparisons,
-zero failures and 506 explicit deferrals, without absolute floors. Insertion,
+`intersect.curve_class_p6` is partial: 4432 cases, 3927 bit-identical comparisons,
+zero failures and 505 explicit deferrals, without absolute floors. Insertion,
 homogenization and endpoint repair follow the upstream control flow, retaining
 explicit dependency boundaries. `MergeInterval` implements its early exits;
 its topology mutation remains deferred at the p2 boundary-tolerance lookup.
@@ -967,10 +966,9 @@ Nonempty homogenization/repair and 2D classification are not certified.
 
 The oracle uses concrete native geometric types and real box topology, records
 point-classification state and created-entity outputs, and compares actual curve
-evaluations. Native FFI regressions, including 720 isolated operation/kind/flag
-probes, are retained for manual execution in the PR #141 stack. Workflow changes
-are excluded from the numerical PR. The original PR #138 remains a separate claim;
-PR #141 integrates its code with p2/p7 and records revised validation separately.
+evaluations. Native FFI regressions include 27440 isolated combinations of
+operations, geometric kinds, flags and classifications, plus 96 partition/SSS/boundary
+probes. They run locally with the project CI workflow unchanged. The PR remains draft.
 
 ## Curve-classification extraction and merging (2026-10-16, PR #141)
 
