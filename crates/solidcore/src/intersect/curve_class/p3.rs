@@ -108,16 +108,16 @@ pub struct FoundInterval {
 /// Which point classification of which interval a pointer from `GetPointClassByIndex`
 /// would address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct PointClassLoc {
+pub(super) struct PointClassLoc {
     /// The interval.
-    interval: usize,
+    pub(super) interval: usize,
     /// [`IntervalPosition::Start`], `Inside` (the interior) or `End`.
-    end: IntervalPosition,
+    pub(super) end: IntervalPosition,
 }
 
 /// `SM_FALSE` / `SM_TRUE` / `UNSURE`, the tri-state `AreCoincidentMaybe` returns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Coincident {
+pub(super) enum Coincident {
     /// `FALSE`.
     No,
     /// `TRUE`.
@@ -164,7 +164,7 @@ fn vertex_point<O: ClassObject>(vertex: O) -> Result<Point3> {
 
 /// `SmCurveClassification::GetPointClassByIndex(index)`: the location of boundary
 /// `index` (`0..=size`).
-fn point_class_loc_by_index<O: ClassObject>(
+pub(super) fn point_class_loc_by_index<O: ClassObject>(
     cc: &CurveClassification<O>,
     index: usize,
 ) -> Result<PointClassLoc> {
@@ -208,7 +208,7 @@ fn classify_crv_loc_by_index<O: ClassObject>(
 }
 
 /// `SmCurveClassification::AreCoincidentMaybe(other, index, endOfCoincidentMaybe)`.
-fn are_coincident_maybe<O: ClassObject>(
+pub(super) fn are_coincident_maybe<O: ClassObject>(
     k: &Kernel,
     geometry: &impl ClassGeometry<O>,
     cc: &CurveClassification<O>,
@@ -326,7 +326,7 @@ fn interval_end_position(ivl: &CurveInterval<impl ClassObject>, end: IntervalPos
 
 impl<O: ClassObject> CurveClassification<O> {
     /// The classification an upstream pointer from `GetPointClassByIndex` addresses.
-    fn pc_at(&self, loc: PointClassLoc) -> Result<&PointClassification<O>> {
+    pub(super) fn pc_at(&self, loc: PointClassLoc) -> Result<&PointClassification<O>> {
         let ivl = self.at(loc.interval)?;
         Ok(match loc.end {
             IntervalPosition::Start => &ivl.start,
