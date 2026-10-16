@@ -1,0 +1,139 @@
+{
+  "cases": [
+    {
+      "name": "isolated_vertex_uv",
+      "upstream_ref": "tests/prog_test/src/smTopoTest.cpp:3040 (my_test_get_loop_crossings vertex-loop recipe, isolated boundary)",
+      "inputs": {
+        "op": 1,
+        "vertices": [
+          [
+            0.5,
+            0.5,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "isolated_vertex_3d",
+      "upstream_ref": "tests/prog_test/src/smTopoTest.cpp:3040 (my_test_get_loop_crossings vertex-loop recipe, isolated boundary)",
+      "inputs": {
+        "op": 1,
+        "check3d": true,
+        "vertices": [
+          [
+            0.5,
+            0.5,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "cached_vertex_dedup",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:16220 (cached marks)",
+      "inputs": {
+        "op": 1,
+        "state": 4,
+        "vertices": [
+          [
+            0.5,
+            0.5,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "empty_edges_defaults",
+      "upstream_ref": "source/SMLib/inc/SmCurveClass.h:775 (default flags)",
+      "inputs": {
+        "op": 0,
+        "dim3": true,
+        "defaults": true
+      }
+    },
+    {
+      "name": "same_curve_overlap",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15651 (pointer identity shortcut)",
+      "inputs": {
+        "op": 0,
+        "dim3": true,
+        "edges": [
+          {
+            "a": [
+              0,
+              0,
+              0
+            ],
+            "b": [
+              1,
+              0,
+              0
+            ],
+            "same": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "same_curve_disjoint",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:15651 (pointer identity empty overlap)",
+      "inputs": {
+        "op": 0,
+        "dim3": true,
+        "interval": [
+          0.5,
+          1
+        ],
+        "edges": [
+          {
+            "a": [
+              0,
+              0,
+              0
+            ],
+            "b": [
+              1,
+              0,
+              0
+            ],
+            "same": true,
+            "interval": [
+              0,
+              0.4
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "trim_rectangle_interior",
+      "upstream_ref": "tests/prog_test/src/smTopoTest.cpp:3015 (my_test_get_loop_crossings rectangular sheet, restricted interior subdomain)",
+      "inputs": {
+        "op": 1,
+        "rectangle": true
+      }
+    },
+    {
+      "name": "trim_rectangle_crossing",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:16100 (trim curve intersection)",
+      "inputs": {
+        "op": 1,
+        "rectangle": true,
+        "source": [
+          [
+            -0.5,
+            0.5,
+            0
+          ],
+          [
+            1.5,
+            0.5,
+            0
+          ]
+        ]
+      }
+    }
+  ]
+}
