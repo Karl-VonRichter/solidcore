@@ -4343,6 +4343,414 @@
         ],
         "flag1": false
       }
+    },
+    {
+      "name": "extract_common_face_0_1",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13465 (ExtractGeometry common intervals)",
+      "inputs": {
+        "op": 3,
+        "shape": 0,
+        "target": 3,
+        "bounds": [
+          0.0,
+          1.0
+        ],
+        "classes": [
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_common_face_0_3",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13465 (ExtractGeometry common intervals)",
+      "inputs": {
+        "op": 3,
+        "shape": 0,
+        "target": 3,
+        "bounds": [
+          0.0,
+          0.25,
+          0.5,
+          1.0
+        ],
+        "classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_common_face_1_1",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13465 (ExtractGeometry common intervals)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "bounds": [
+          0.0,
+          1.0
+        ],
+        "classes": [
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102
+        ]
+      }
+    },
+    {
+      "name": "extract_common_face_1_3",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13465 (ExtractGeometry common intervals)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "bounds": [
+          0.0,
+          0.25,
+          0.5,
+          1.0
+        ],
+        "classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ]
+      }
+    },
+    {
+      "name": "face_range_threshold_0_0.049999999999",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14515 (face range length threshold, pass 3)",
+      "inputs": {
+        "op": 1,
+        "target": 3,
+        "index": 0,
+        "solutions": [
+          [
+            2,
+            0.0,
+            0.0,
+            0.049999999999,
+            0.049999999999,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "face_range_threshold_0_0.05",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14515 (face range length threshold, pass 3)",
+      "inputs": {
+        "op": 1,
+        "target": 3,
+        "index": 0,
+        "solutions": [
+          [
+            2,
+            0.0,
+            0.0,
+            0.05,
+            0.05,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "face_range_threshold_0_0.050000000001",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14515 (face range length threshold, pass 3)",
+      "inputs": {
+        "op": 1,
+        "target": 3,
+        "index": 0,
+        "solutions": [
+          [
+            2,
+            0.0,
+            0.0,
+            0.050000000001,
+            0.050000000001,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "face_range_threshold_0_0.2",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14515 (face range length threshold, pass 3)",
+      "inputs": {
+        "op": 1,
+        "target": 3,
+        "index": 0,
+        "solutions": [
+          [
+            2,
+            0.0,
+            0.0,
+            0.2,
+            0.2,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "face_range_threshold_1_0.049999999999",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14515 (face range length threshold, pass 3)",
+      "inputs": {
+        "op": 1,
+        "target": 3,
+        "index": 1,
+        "solutions": [
+          [
+            2,
+            0.0,
+            0.0,
+            0.049999999999,
+            0.049999999999,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "face_range_threshold_1_0.05",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14515 (face range length threshold, pass 3)",
+      "inputs": {
+        "op": 1,
+        "target": 3,
+        "index": 1,
+        "solutions": [
+          [
+            2,
+            0.0,
+            0.0,
+            0.05,
+            0.05,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "face_range_threshold_1_0.050000000001",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14515 (face range length threshold, pass 3)",
+      "inputs": {
+        "op": 1,
+        "target": 3,
+        "index": 1,
+        "solutions": [
+          [
+            2,
+            0.0,
+            0.0,
+            0.050000000001,
+            0.050000000001,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "face_range_threshold_1_0.2",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14515 (face range length threshold, pass 3)",
+      "inputs": {
+        "op": 1,
+        "target": 3,
+        "index": 1,
+        "solutions": [
+          [
+            2,
+            0.0,
+            0.0,
+            0.2,
+            0.2,
+            0.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "name": "extract_common_face_0_1_uv",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13465 (ExtractGeometry common intervals)",
+      "inputs": {
+        "op": 3,
+        "shape": 0,
+        "target": 3,
+        "bounds": [
+          0.0,
+          1.0
+        ],
+        "classes": [
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102
+        ],
+        "flag1": true,
+        "flag2": true
+      }
+    },
+    {
+      "name": "extract_common_face_0_3_uv",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13465 (ExtractGeometry common intervals)",
+      "inputs": {
+        "op": 3,
+        "shape": 0,
+        "target": 3,
+        "bounds": [
+          0.0,
+          0.25,
+          0.5,
+          1.0
+        ],
+        "classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ],
+        "flag1": true,
+        "flag2": true
+      }
+    },
+    {
+      "name": "extract_common_face_1_1_uv",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13465 (ExtractGeometry common intervals)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "bounds": [
+          0.0,
+          1.0
+        ],
+        "classes": [
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102
+        ],
+        "flag1": true,
+        "flag2": true
+      }
+    },
+    {
+      "name": "extract_common_face_1_3_uv",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:13465 (ExtractGeometry common intervals)",
+      "inputs": {
+        "op": 3,
+        "shape": 1,
+        "target": 3,
+        "bounds": [
+          0.0,
+          0.25,
+          0.5,
+          1.0
+        ],
+        "classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ],
+        "other_classes": [
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102,
+          102
+        ],
+        "flag1": true,
+        "flag2": true
+      }
     }
   ]
 }

@@ -13,12 +13,13 @@
 //! | [`CurveClassification::merge_intervals`] | `SmCurveClassification::MergeIntervals` |
 //!
 //! Deviations: output lists become owned results; handles and geometry use the part-1
-//! model. Optional ClassGeometry callbacks resolve vertex points, topology tolerances
+//! model. Optional [`ClassGeometry`] callbacks resolve vertex points, topology tolerances
 //! and vertex/face gaps. Opaque handles still defer. The SSS refinement block
 //! (upstream lines 14812–15082) needs mutable curve/topology ownership and defers
 //! before editing geometry; ordinary and large-gap vertex projections are ported.
-//! Missing part-6 calls defer explicitly. The fixup restart loop is bounded by the
-//! initial interval count plus one: each successful fix removes an interval. Undefined
+//! Part-6 interval operations call the active dependency implementation. The fixup restart loop is bounded by the
+//! three times the initial interval count plus one: fixes remove an interval or
+//! snap an edge classification to a vertex. Undefined
 //! native null dereferences and unequal paired classification lengths return errors.
 //! Debug drawing/assertions are omitted. Ignored ordinary Trim failures stay ignored;
 //! failed Copy returns an error rather than dereferencing a null native result.
@@ -26,13 +27,14 @@
 use super::{
     make_consistent_classifications, src_zone_tol_3d_of, CurveClassification, CurveInterval,
 };
+use crate::curve::crv_on_surf::CrvOnSurf;
 use crate::curve::curve::p1::GlobalPointSolveOptions;
-use crate::curve::curve::p2::Curve;
+use crate::curve::curve::p2::{Curve, CurveKind};
 use crate::error::{ignore_status, ignored, Result, SolidError};
 use crate::geom::extent1d::Extent1d;
 use crate::geom::global_solver::{SolutionRequested, SolverOperation};
 use crate::geom::solution_array::{ObjectKind, Solution, SolutionObject, SolutionType};
-use crate::geom::tol::{xsect_tol_3d_from_zones, ANG_TOL_DEG};
+use crate::geom::tol::{xsect_tol3d, xsect_tol_3d_from_zones, ANG_TOL_DEG};
 use crate::intersect::point_class::{
     object_zone_tol_3d, ClassGeometry, ClassObject, ClassObjectKind, PointClassType,
     PointClassification,
@@ -108,7 +110,26 @@ fn contained_point(c: PointClassType) -> bool {
     contained_mid(c) || c == PointClassType::Vertex
 }
 
-fn append_unique<O: PartialEq>(dst: &mut Vec<O>, src: Vec<O>) {
+fn copy_uv_bspline(curve: &Curve) -> Result<Curve> {
+    // Native constructs SmBSplineCurve from the UV curve's B-spline base, slicing
+    // analytic subclasses. A non-B-spline UV curve makes that native cast undefined.
+    let base = match curve.kind() {
+        CurveKind::BSpline(c) => c.clone(),
+        CurveKind::Line(c) => c.base_with_nurb()?.into_owned(),
+        CurveKind::Ellipse(c) => c.base().clone(),
+        CurveKind::Hyperbola(c) => c.base().clone(),
+        CurveKind::Parabola(c) => c.base().clone(),
+        _ => {
+            return Err(SolidError::invalid_input(
+                OP,
+                "UV curve has no B-spline base",
+            ))
+        }
+    };
+    Ok(Curve::from(base))
+}
+
+fn append_unique<O: PartialEq>(dst: &mut Vec<O>, src: impl IntoIterator<Item = O>) {
     for value in src {
         if !dst.contains(&value) {
             dst.push(value);
@@ -131,46 +152,23 @@ impl<O: ClassObject> CurveClassification<O> {
         )
     }
 
-    fn p5_homogenize(_classification: &mut Self, _other: &mut Self) -> Result<()> {
-        // UNPORTED(intersect.curve_class_p6): SmCurveClassification::Homogenize
-        Err(SolidError::unported(
-            "SmCurveClassification::Homogenize",
-            "intersect.curve_class_p6",
-        ))
-    }
-
-    fn p5_insert_interval(_classification: &mut Self, _interval: CurveInterval<O>) -> Result<()> {
-        // UNPORTED(intersect.curve_class_p6): SmCurveClassification::InsertCurveInterval
-        Err(SolidError::unported(
-            "SmCurveClassification::InsertCurveInterval",
-            "intersect.curve_class_p6",
-        ))
-    }
-
-    fn p5_fix_endpoint(_classification: &mut Self, _index: usize, _point: Point3) -> Result<bool> {
-        // UNPORTED(intersect.curve_class_p6): SmCurveClassification::FixEndPointClass
-        Err(SolidError::unported(
-            "SmCurveClassification::FixEndPointClass",
-            "intersect.curve_class_p6",
-        ))
-    }
-
     fn p5_merge_interval(
-        _classification: &mut Self,
-        _index: usize,
-        _vertices_only: bool,
+        classification: &mut Self,
+        index: usize,
+        vertices_only: bool,
     ) -> Result<MergedTopology<O>> {
-        // UNPORTED(intersect.curve_class_p6): SmCurveClassification::MergeInterval
-        Err(SolidError::unported(
-            "SmCurveClassification::MergeInterval",
-            "intersect.curve_class_p6",
-        ))
+        let out = classification.merge_interval(index, vertices_only)?;
+        Ok(MergedTopology {
+            faces: out.new_faces,
+            edges: out.new_edges,
+            vertices: out.new_vertices,
+        })
     }
 
     /// Extracts common geometry after homogenizing and cleaning both classifications.
     ///
     /// # Errors
-    /// Missing part-6 operations defer; invalid geometry or unresolvable handles fail.
+    /// Unresolvable handles or unfinished topology merging defer; invalid geometry fails.
     pub fn extract_geometry(
         &mut self,
         k: &Kernel,
@@ -179,7 +177,7 @@ impl<O: ClassObject> CurveClassification<O> {
         options: ExtractOptions,
     ) -> Result<ExtractedGeometry> {
         let mut out = ExtractedGeometry::default();
-        Self::p5_homogenize(self, other)?;
+        self.homogenize(k, geometry, other)?;
         self.cleanup_and_validate(k, geometry, other)?;
         if self.size() != other.size() {
             return Err(SolidError::sm_err(OP));
@@ -200,10 +198,10 @@ impl<O: ClassObject> CurveClassification<O> {
                 ] {
                     if requested {
                         if let Some(handle) = handle {
-                            let mut uv = geometry
-                                .curve(handle)
-                                .ok_or(SolidError::invalid_input(OP, "unresolved UV curve"))?
-                                .clone();
+                            let mut uv =
+                                copy_uv_bspline(geometry.curve(handle).ok_or(
+                                    SolidError::invalid_input(OP, "unresolved UV curve"),
+                                )?)?;
                             ignore_status(uv.trim(k, &mut interval, TrimMode::default()))?;
                             curves.push(uv);
                         }
@@ -250,7 +248,7 @@ impl<O: ClassObject> CurveClassification<O> {
         geometry: &impl ClassGeometry<O>,
     ) -> Result<()> {
         let _ = k;
-        let mut restarts = self.size().saturating_add(1);
+        let mut restarts = self.size().saturating_mul(3).saturating_add(1);
         'restart: loop {
             for i in 0..self.size() {
                 if self.at(i)?.mid.point_class() == PointClassType::Unknown {
@@ -260,8 +258,8 @@ impl<O: ClassObject> CurveClassification<O> {
                 let interval = self.at(i)?.interval;
                 let start = curve.evaluate_point(interval.min())?;
                 let end = curve.evaluate_point(interval.max())?;
-                if Self::p5_fix_endpoint(self, i, start)?
-                    || Self::p5_fix_endpoint(self, i + 1, end)?
+                if self.fix_end_point_class(k, geometry, i, start)?
+                    || self.fix_end_point_class(k, geometry, i + 1, end)?
                 {
                     restarts = restarts.checked_sub(1).ok_or(SolidError::sm_err(OP))?;
                     continue 'restart;
@@ -334,7 +332,7 @@ impl<O: ClassObject> CurveClassification<O> {
                         other_index,
                         end.param(object_index)?,
                     )?;
-                    Self::p5_insert_interval(self, ivl)?;
+                    self.insert_curve_interval(k, geometry, &ivl)?;
                 } else if (pass == 1 || pass == 2) && sol.solution_type == SolutionType::SingleValue
                 {
                     let object = object
@@ -378,14 +376,27 @@ impl<O: ClassObject> CurveClassification<O> {
         has_big_gaps: bool,
         uv_space_okay: bool,
     ) -> Result<()> {
-        let curve = self.curve_geometry(geometry)?;
-        if !uv_space_okay && curve.dim() == 2 {
-            // UNPORTED(surface.surface_p2): SmCrvOnSurf over a generic Surface
-            return Err(SolidError::unported(
-                "SmCrvOnSurf generic Surface dispatch",
-                "surface.surface_p2",
-            ));
-        }
+        let original_curve = self.curve_geometry(geometry)?;
+        let wrapped;
+        let curve = if !uv_space_okay && original_curve.dim() == 2 {
+            let SurfaceKind::BSpline(bs) = surface.kind() else {
+                // UNPORTED(surface.surface_p2): SmCrvOnSurf over a generic Surface
+                return Err(SolidError::unported(
+                    "SmCrvOnSurf generic Surface dispatch",
+                    "surface.surface_p2",
+                ));
+            };
+            wrapped = Curve::from(CrvOnSurf::new(
+                k,
+                original_curve.clone(),
+                bs.clone(),
+                Some(surface.natural_uv_domain()),
+                0,
+            )?);
+            &wrapped
+        } else {
+            original_curve
+        };
         let source_zone = src_zone_tol_3d_of(k, Some(self));
         for &vertex in vertices {
             let vertex_zone = object_zone_tol_3d(k, geometry, Some(vertex))?;
@@ -524,6 +535,8 @@ impl<O: ClassObject> CurveClassification<O> {
         }
         let mut out = MergedTopology::default();
         let mut out_other = MergedTopology::default();
+        let mut scratch = MergedTopology::default();
+        let mut scratch_other = MergedTopology::default();
         let closed = self.p5_closed(k, geometry)?;
         for i in 0..self.size() {
             if !contained_mid(self.at(i)?.mid.point_class())
@@ -531,14 +544,17 @@ impl<O: ClassObject> CurveClassification<O> {
             {
                 continue;
             }
-            let merged = Self::p5_merge_interval(self, i, false)?;
-            append_unique(&mut out.faces, merged.faces);
-            append_unique(&mut out.edges, merged.edges);
-            append_unique(&mut out.vertices, merged.vertices);
-            let merged = Self::p5_merge_interval(other, i, false)?;
-            append_unique(&mut out_other.faces, merged.faces);
-            append_unique(&mut out_other.edges, merged.edges);
-            append_unique(&mut out_other.vertices, merged.vertices);
+            scratch = Self::p5_merge_interval(self, i, false)?;
+            append_unique(&mut out.faces, scratch.faces.iter().copied());
+            append_unique(&mut out.edges, scratch.edges.iter().copied());
+            append_unique(&mut out.vertices, scratch.vertices.iter().copied());
+            scratch_other = Self::p5_merge_interval(other, i, false)?;
+            append_unique(&mut out_other.faces, scratch_other.faces.iter().copied());
+            append_unique(&mut out_other.edges, scratch_other.edges.iter().copied());
+            append_unique(
+                &mut out_other.vertices,
+                scratch_other.vertices.iter().copied(),
+            );
             if i == 0 && closed {
                 let last = self.size() - 1;
                 self.at_mut(last)?.end = self.at(0)?.start;
@@ -554,16 +570,24 @@ impl<O: ClassObject> CurveClassification<O> {
                         k,
                         geometry,
                         j,
-                        Some(&mut out.edges),
-                        Some(&mut out.vertices),
+                        Some(&mut scratch.edges),
+                        Some(&mut scratch.vertices),
                     )?;
+                    // MergePointClass appends to the reused scratch lists. Native
+                    // Append copies the whole lists, retaining repeated prefixes.
+                    out.edges.extend_from_slice(&scratch.edges);
+                    out.vertices.extend_from_slice(&scratch.vertices);
                     other.merge_point_class(
                         k,
                         geometry,
                         j,
-                        Some(&mut out_other.edges),
-                        Some(&mut out_other.vertices),
+                        Some(&mut scratch_other.edges),
+                        Some(&mut scratch_other.vertices),
                     )?;
+                    out_other.edges.extend_from_slice(&scratch_other.edges);
+                    out_other
+                        .vertices
+                        .extend_from_slice(&scratch_other.vertices);
                 }
             }
         }
@@ -574,7 +598,7 @@ impl<O: ClassObject> CurveClassification<O> {
     /// The upstream default is false. The debug-only original face argument is omitted.
     ///
     /// # Errors
-    /// Missing part-6 `MergeInterval` defers when an interval has either endpoint object.
+    /// Unfinished topology merging defers when an interval requires graph mutation.
     pub fn merge_intervals(&mut self, vertices_only: bool) -> Result<MergedTopology<O>> {
         let mut out = MergedTopology::default();
         for pass in 0..if vertices_only { 1 } else { 2 } {
@@ -613,8 +637,10 @@ pub fn insert_solutions<O: ClassObject>(
     let source = classification.curve_geometry(geometry)?;
     let source_zone = src_zone_tol_3d_of(k, Some(classification));
     let target_zone = object_zone_tol_3d(k, geometry, Some(object))?;
-    let tol =
-        xsect_tolerance.unwrap_or_else(|| xsect_tol_3d_from_zones(k, source_zone, target_zone));
+    let tol = xsect_tolerance.map_or_else(
+        || xsect_tol_3d_from_zones(k, source_zone, target_zone),
+        |t| xsect_tol3d(k, t),
+    );
     let target = geometry.curve(object);
     let plane = geometry
         .surface(object)
@@ -710,7 +736,7 @@ pub fn insert_solutions<O: ClassObject>(
                     "native short-range tangency filtering requires an edge",
                 ));
             }
-            CurveClassification::p5_insert_interval(classification, ivl)?;
+            classification.insert_curve_interval(k, geometry, &ivl)?;
         }
     }
     Ok(())

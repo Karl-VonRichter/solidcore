@@ -683,8 +683,16 @@ static SmStatus sm_InsertSolutions               // eff: split curveClassificati
 } // end sm_InsertSolutions
 }
 namespace {
-struct ScFace : SmFace { ScFace() : SmFace() {} };
+struct ScFace : SmFace { ScFace(SmSurface* s) : SmFace() {m_pSurface=s;} ~ScFace() {m_pSurface=NULL;} };
 struct ScVertex : SmVertex { ScVertex(double x, double tol) : SmVertex() { m_vPoint=SmPoint3d(x,0,0); m_sZoneTol3d=SmZoneTol3d(tol); } };
+void put_curve(std::vector<double>& out, SmCurve* curve) {
+    SmExtent1d domain=curve->GetNaturalInterval();
+    out.insert(out.end(),{double(curve->GetType()),double(curve->GetDim()),domain.GetMin(),domain.GetMax()});
+    for(int j=0;j<=4;j++) {
+        SmPoint3d point; SmStatus st=curve->EvaluatePoint(domain.Evaluate(j/4.0),point);
+        out.insert(out.end(),{st==SM_SUCCESS?0.0:double(st),point.x,point.y,point.z});
+    }
+}
 void put_pc(std::vector<double>& out, const SmPointClassification& pc, SmObject* target) {
     out.push_back(pc.GetPointClass());
     out.push_back(pc.GetObject() == target ? 1 : pc.GetObject() ? -2 : -1);
@@ -737,12 +745,6 @@ SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in
     if((op==0 || op==1) && n==0 && ns>0) return SC_ERR_ARG;
     if(op==6 && in[4] && in[5]) return SC_ERR_ARG; // no vertexuse on the standalone vertex
     if(op==3 && n==0) return SC_ERR_ARG; // Homogenize reads interval zero.
-    // sm_InsertSolutions dereferences pEdgeCurve in its short-range ignore-tangency
-    // branch, even for a bare curve/plane. It is always null for these target kinds.
-    if(op==0 && in[3]) for(int j=0;j<ns;j++) {
-        const double* s=sols+7*j;
-        if(s[0]==2 && s[1]<=s[3] && s[3]-s[1] < .05*(bounds[n]-bounds[0])) return SC_ERR_ARG;
-    }
     SmContext ctx;
     std::unique_ptr<SmCurve> curve;
     if(shape==0) curve.reset(new (&ctx) SmLine(SmPoint3d(0,0,0),SmPoint3d(scale,0,0),dim,&ctx));
@@ -750,17 +752,20 @@ SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in
     auto target_curve=std::unique_ptr<SmCurve>(new (&ctx) SmLine(SmPoint3d(0,0,0),SmPoint3d(scale*std::cos(angle),scale*std::sin(angle),0),dim,&ctx));
     auto plane=std::unique_ptr<SmPlane>(new (&ctx) SmPlane(SmPoint3d(0,0,0),SmVector3d(0,0,1),&ctx));
     // An owner is required even for an empty IntersectVertices call (GetOwner()->IsKindOf).
-    ScFace face;
+    ScFace face(plane.get());
     plane->SetOwner(&face);
     ScVertex vertex(angle*scale,tol);
     SmObject* target=target_kind==0 ? static_cast<SmObject*>(target_curve.get()) : target_kind==1 ? static_cast<SmObject*>(plane.get()) : target_kind==2 ? static_cast<SmObject*>(&vertex) : static_cast<SmObject*>(&face);
     // InsertSolutions' plane zone tolerance would follow its owner; keep it unowned
     // except during IntersectVertices, where ownership is required by native code.
     if(op!=6) plane->SetOwner(NULL);
+    auto uv1=std::unique_ptr<SmLine>(new (&ctx) SmLine(SmPoint3d(0,0,0),SmPoint3d(scale,0,0),2,&ctx));
+    auto uv2=std::unique_ptr<SmLine>(new (&ctx) SmLine(SmPoint3d(0,0,0),SmPoint3d(0,scale,0),2,&ctx));
     SmCurveClassification cc[2];
     for(int side=0;side<2;side++) {
         auto& c=cc[side]; const double* b=side ? other_bounds : bounds;
         c.SetCurve(curve.get(),FALSE); SmTol::SetZoneTol3d(&c,SmZoneTol3d(tol)); c.SetIgnoreTangency(in[3]);
+        if(op==3 && ((side==0 && in[4]) || (side==1 && in[5]))) c.SetUVCurve1(side==0?uv1.get():uv2.get());
         c.SetSize(n); c.SetInterval(SmExtent1d(b[0],b[n]));
         for(int j=0;j<n;j++) {
             c[j].SetInterval(SmExtent1d(b[j],b[j+1]));
@@ -775,10 +780,24 @@ SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in
     SmSolutionArray solutions;
     for(int j=0;j<ns;j++) {
         const double* s=sols+7*j; SmSolution sol;
-        sol.m_eSolutionType=(SmSolutionType)(int)s[0]; sol.m_lNumObjects=2; sol.m_lNumVariables=2;
+        sol.m_eSolutionType=(SmSolutionType)(int)s[0]; sol.m_lNumObjects=2; sol.m_lNumVariables=target_kind==3?3:2;
         sol.m_apObjects[0]=curve.get(); sol.m_apObjects[1]=target;
+        if(op==1 && index==1) std::swap(sol.m_apObjects[0],sol.m_apObjects[1]);
         sol.m_vStart[0]=s[1]; sol.m_vStart[1]=s[2]; sol.m_vEnd[0]=s[3]; sol.m_vEnd[1]=s[4];
         sol.m_vStart.m_dSolutionValue=s[5]; sol.m_vEnd.m_dSolutionValue=s[6]; solutions.Add(sol);
+    }
+    // The copied helper converts sufficiently short ranges to points before its
+    // tangency branch. Keep those valid calls; only reject ranges that remain ranges
+    // and would dereference its null pEdgeCurve. This check uses the same native
+    // endpoint and six-segment length tests, without changing the solution.
+    if(op==0 && in[3]) for(ULONG j=0;j<solutions.GetSize();j++) {
+        SmSolution& s=solutions[j];
+        if(s.m_eSolutionType!=SM_ST_RANGE_OF_VALUES || s.m_vStart[0]>s.m_vEnd[0] ||
+           (s.m_vEnd[0]-s.m_vStart[0])/(bounds[n]-bounds[0])>=.05) continue;
+        SmXSectTol3d xt=opt_tol<0 ? SmTol::GetXSectTol3d(SmZoneTol3d(tol),SmTol::GetZoneTol3d(target)) : SmXSectTol3d(opt_tol);
+        SmPoint3d p0,p1,prm0,prm1; SmStatus st=s.GetPoint(0,p0,&prm0,FALSE); st &= s.GetPoint(0,p1,&prm1,TRUE);
+        SmExtent1d interval(prm0[0]); interval.AddValue(prm1[0]);
+        if(st!=SM_SUCCESS || !p0.CloserThan(xt,p1) || !(curve->ApproximateLength(interval,6)<xt)) return SC_ERR_ARG;
     }
     SmStatus status=SM_SUCCESS; std::vector<double> result;
     SmTArray<SmFace*> faces, faces2; SmTArray<SmEdge*> edges, edges2; SmTArray<SmVertex*> vertices, vertices2;
@@ -789,7 +808,10 @@ SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in
         SmTArray<SmCurve*> curves,uv1,uv2; SmTArray<SmPoint3d> points;
         status=cc[0].ExtractGeometry(ctx,cc[1],curves,in[4]?&uv1:NULL,in[5]?&uv2:NULL,in[6]?&points:NULL);
         result.insert(result.end(),{double(curves.GetSize()),double(uv1.GetSize()),double(uv2.GetSize()),double(points.GetSize())});
-        for(ULONG j=0;j<curves.GetSize();j++) delete curves[j];
+        for(ULONG j=0;j<curves.GetSize();j++) {put_curve(result,curves[j]); delete curves[j];}
+        for(ULONG j=0;j<uv1.GetSize();j++) put_curve(result,uv1[j]);
+        for(ULONG j=0;j<uv2.GetSize();j++) put_curve(result,uv2[j]);
+        for(ULONG j=0;j<points.GetSize();j++) result.insert(result.end(),{points[j].x,points[j].y,points[j].z});
         for(ULONG j=0;j<uv1.GetSize();j++) delete uv1[j];
         for(ULONG j=0;j<uv2.GetSize();j++) delete uv2[j];
     }

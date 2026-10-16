@@ -32,46 +32,47 @@ fn invalid() -> FfiError {
 /// Native topology mutation on bare objects, nonempty endpoint fixups, and the
 /// null-edge short-range tangency bug are excluded. Valid non-topology insertion,
 /// extraction, vertex projection and merge skip paths remain covered.
-pub fn run(input: &[f64]) -> Result<Vec<f64>, FfiError> {
-    if input.len() < 15 || input.iter().any(|x| !x.is_finite() || x.abs() > 1e21) {
+pub fn validate(input: &[f64]) -> Result<(), FfiError> {
+    if input.iter().any(|x| !x.is_finite() || x.abs() > 1e21) {
         return Err(invalid());
     }
-    let int = |i: usize, max: u32| -> Result<usize, FfiError> {
-        let x = input[i];
+    let &[op, shape, dim, ignore, flag1, flag2, flag3, target, index, scale, tol, _angle, n, ns, opt_tol] =
+        input.first_chunk::<15>().ok_or_else(invalid)?;
+    let int = |x: f64, max: u32| -> Result<usize, FfiError> {
         if x < 0.0 || x > f64::from(max) || x.fract() != 0.0 {
             return Err(invalid());
         }
         Ok(x as usize)
     };
-    let op = int(0, 6)?;
-    int(1, 1)?;
-    int(2, 1)?;
-    for i in 3..7 {
-        int(i, 1)?;
+    let op = int(op, 6)?;
+    int(shape, 1)?;
+    int(dim, 1)?;
+    for flag in [ignore, flag1, flag2, flag3] {
+        int(flag, 1)?;
     }
-    let target = int(7, 3)?;
-    int(8, 1)?;
-    let n = int(12, 32)?;
-    let ns = int(13, 32)?;
+    let target = int(target, 3)?;
+    int(index, 1)?;
+    let n = int(n, 32)?;
+    let ns = int(ns, 32)?;
     if input.len() != 15 + 2 * (n + 1) + 6 * n + 7 * ns
-        || input[9] <= 0.0
-        || input[9] > 1e6
-        || !(0.0..=1.0).contains(&input[10])
-        || !(-1.0..=1.0).contains(&input[14])
+        || scale <= 0.0
+        || scale > 1e6
+        || !(0.0..=1.0).contains(&tol)
+        || !(-1.0..=1.0).contains(&opt_tol)
     {
         return Err(invalid());
     }
     for side in 0..2 {
         let start = 15 + side * (n + 1);
-        let bounds = &input[start..start + n + 1];
+        let bounds = input.get(start..start + n + 1).ok_or_else(invalid)?;
         if bounds.iter().any(|x| !(0.0..=1.0).contains(x))
-            || bounds.windows(2).any(|w| w[0] >= w[1])
+            || bounds.windows(2).any(|w| matches!(w,[a,b] if a>=b))
         {
             return Err(invalid());
         }
     }
     let at = 15 + 2 * (n + 1);
-    let classes = &input[at..at + 6 * n];
+    let classes = input.get(at..at + 6 * n).ok_or_else(invalid)?;
     for &class in classes {
         let valid = class == 100.0
             || class == 110.0
@@ -79,49 +80,45 @@ pub fn run(input: &[f64]) -> Result<Vec<f64>, FfiError> {
             || (class == 107.0 && target == 1)
             || (class == 104.0 && target == 2)
             || (class == 102.0 && target == 3);
-        if !valid {
-            return Err(invalid());
-        }
-        if (op == 4 || op == 5) && (101.0..=104.0).contains(&class) {
+        if !valid || ((op == 4 || op == 5) && (101.0..=104.0).contains(&class)) {
             return Err(invalid());
         }
     }
-    if op == 2 && classes[..3 * n].chunks_exact(3).any(|c| c[1] != 100.0) {
+    if op == 2
+        && classes
+            .get(..3 * n)
+            .ok_or_else(invalid)?
+            .chunks_exact(3)
+            .any(|c| matches!(c,[_,mid,_] if *mid!=100.0))
+    {
         return Err(invalid());
     }
-    if ((op == 0 || op == 1) && n == 0 && ns > 0) || (op == 3 && n == 0) {
+    if ((op == 0 || op == 1) && n == 0 && ns > 0)
+        || (op == 3 && n == 0)
+        || (op == 6 && flag1 != 0.0 && flag2 != 0.0)
+        || (op == 0 && target > 1)
+    {
         return Err(invalid());
     }
-    if op == 6 && input[4] != 0.0 && input[5] != 0.0 {
-        return Err(invalid());
-    }
-    if op == 0 && target > 1 {
-        return Err(invalid());
-    }
-    // Index 1 means target is the source operand and curve is the classified object.
-    // Loading a Face at parameter slot 1 would also read its second parameter (slot 2),
-    // which this two-variable fixture does not declare: reject it precisely.
-    if op == 1 && input[8] == 0.0 && target == 3 {
-        return Err(invalid());
-    }
-    for sol in input[at + 6 * n..].chunks_exact(7) {
-        if sol[0] < 0.0
-            || sol[0] > 4.0
-            || sol[0].fract() != 0.0
-            || sol[1..5].iter().any(|x| !(0.0..=1.0).contains(x))
-            || sol[5..].iter().any(|x| *x < 0.0 || *x > 1.0)
-        {
+
+    for sol in input.get(at + 6 * n..).ok_or_else(invalid)?.chunks_exact(7) {
+        let &[typ, t0, t1, t2, t3, gap0, gap1] = sol else {
             return Err(invalid());
-        }
-        if op == 0
-            && input[3] != 0.0
-            && sol[0] == 2.0
-            && sol[1] <= sol[3]
-            && sol[3] - sol[1] < 0.05 * (input[15 + n] - input[15])
+        };
+        int(typ, 4)?;
+        if [t0, t1, t2, t3, gap0, gap1]
+            .into_iter()
+            .any(|x| !(0.0..=1.0).contains(&x))
         {
             return Err(invalid());
         }
     }
+    Ok(())
+}
+
+/// Executes a validated oracle input; native guards also reject dynamically unsafe paths.
+pub fn run(input: &[f64]) -> Result<Vec<f64>, FfiError> {
+    validate(input)?;
     call_with_buffer(4096, |out, len| {
         // SAFETY: input's exact size, every count/code and all native preconditions
         // above are validated; output and length have caller-owned valid storage.

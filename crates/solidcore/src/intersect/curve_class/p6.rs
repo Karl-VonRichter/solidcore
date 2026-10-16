@@ -15,10 +15,10 @@
 //! Undefined indices return an error. Debug-only
 //! diagnostics are omitted. Insertion restarts after a squeeze in a loop, in upstream
 //! order, bounded by the initial interval count plus one (every restart removes one).
-//! Homogenization's final squeezes must reduce the count. Nonempty boundary lookups
-//! and coincident-maybe handling await p7; interval splicing/squeezing awaits p2.
-//! `MergeInterval` ports its early exits and defers at `GetPointObjZoneTol3d` (p2):
-//! the subsequent topology mutation is not implemented or certified here.
+//! Homogenization's final squeezes must reduce the count. Boundary and interval
+//! helpers call the merged p2/p7 implementations. `MergeInterval` ports its early
+//! exits; graph mutation still needs mutable handle-to-B-rep resolution and is not
+//! implemented or certified here. Paired fillet handles need the boolean intersector.
 
 use super::p3::{are_coincident_maybe, point_class_loc_by_index, Coincident};
 use super::{
@@ -147,7 +147,7 @@ impl<O: ClassObject> CurveClassification<O> {
                 match coin {
                     Coincident::Unsure => return Err(SolidError::sm_err(OP)),
                     Coincident::Yes => {
-                        self.connect_intervals( index, end, false)?;
+                        self.connect_intervals(index, end, false)?;
                         return Ok(true);
                     }
                     Coincident::No => {}
@@ -184,11 +184,11 @@ impl<O: ClassObject> CurveClassification<O> {
                 let last = *self.at(j)?;
                 if first.start.point_class() != Pc::Vertex {
                     if first.interval.length() < last.interval.length() * 10.0 {
-                        self.connect_intervals( i, IntervalPosition::End, false)?;
+                        self.connect_intervals(i, IntervalPosition::End, false)?;
                         return Ok(true);
                     }
                     if last.interval.length() < first.interval.length() * 10.0 {
-                        self.connect_intervals( j, IntervalPosition::Start, false)?;
+                        self.connect_intervals(j, IntervalPosition::Start, false)?;
                         return Ok(true);
                     }
                 }
@@ -294,7 +294,7 @@ impl<O: ClassObject> CurveClassification<O> {
                 && prev.object() == next.object()
                 && prev.object() != pc.object()
             {
-                self.connect_intervals( index, IntervalPosition::Start, true)?;
+                self.connect_intervals(index, IntervalPosition::Start, true)?;
                 return Ok(true);
             }
         }
@@ -303,10 +303,10 @@ impl<O: ClassObject> CurveClassification<O> {
 
     /// Merges an interval's classifications into topology (`MergeInterval`).
     /// The unknown-interior and vertex/edge/vertex early exits are implemented;
-    /// topology creation awaits p2's boundary tolerance accessor.
+    /// topology creation awaits mutable handle-to-B-rep resolution.
     ///
     /// # Errors
-    /// Invalid interval indices, or [`SolidError::Unported`] for p2 tolerance lookup or p7 fillet handling.
+    /// Invalid interval indices, or [`SolidError::Unported`] for topology mutation or paired fillet handles.
     pub fn merge_interval(
         &mut self,
         index: usize,
@@ -321,10 +321,10 @@ impl<O: ClassObject> CurveClassification<O> {
             && ivl.end.point_class() == Pc::Vertex
         {
             if self.doing_fillets() && self.other_classification().is_some() {
-                // UNPORTED(intersect.curve_class_p7): sm_SetDoFilletingGeometry
+                // UNPORTED(boolean.topology_intersector_p1): resolving the paired fillet classification
                 return Err(SolidError::unported(
-                    "sm_SetDoFilletingGeometry",
-                    "intersect.curve_class_p7",
+                    "sm_SetDoFilletingGeometry paired-classification handle resolution",
+                    "boolean.topology_intersector_p1",
                 ));
             }
             return Ok(MergeIntervalOutput::default());
@@ -444,7 +444,9 @@ fn homogenize_boundaries<O: ClassObject>(
 }
 
 fn boundary_location<O: ClassObject>(
-    geometry: &impl ClassGeometry<O>, cc: &CurveClassification<O>, index: usize,
+    geometry: &impl ClassGeometry<O>,
+    cc: &CurveClassification<O>,
+    index: usize,
 ) -> Result<(Point3, f64)> {
     cc.classify_crv_loc_by_index(geometry, index)
 }

@@ -742,7 +742,7 @@ pub fn curve_on_classify<O: ClassObject>(
                 .surface
                 .as_ref()
                 .ok_or_else(|| null(OP_CURVE, "face without surface"))?;
-            intersect_vertices(cc, &vertices, surface, has_big_gaps)?;
+            intersect_vertices(k, objects, cc, &vertices, surface, has_big_gaps)?;
 
             // 2nd intersect face edges with the curve
             let edges = face_edges(b, f, cc.tgt_loops_only(), Some(&tgt_loops))?;
@@ -818,17 +818,46 @@ fn intersect_ts_bound<O>(
 }
 
 /// `SmCurveClassification::IntersectVertices(vertices, surface, bHasBigGaps)`.
-fn intersect_vertices<O>(
-    _cc: &mut CurveClassification<O>,
-    _vertices: &[VertexId],
-    _surface: &Surface,
-    _has_big_gaps: bool,
+fn intersect_vertices<O: ClassObject>(
+    k: &Kernel,
+    objects: &impl CurveOnClassifyObjects<O>,
+    cc: &mut CurveClassification<O>,
+    vertices: &[VertexId],
+    surface: &Surface,
+    has_big_gaps: bool,
 ) -> Result<()> {
-    // UNPORTED(intersect.curve_class_p5): SmCurveClassification::IntersectVertices
-    Err(SolidError::unported(
-        "SmCurveClassification::IntersectVertices",
-        "intersect.curve_class_p5",
-    ))
+    struct CurveGeometry<'a, O> {
+        handle: Option<O>,
+        curve: &'a Curve,
+    }
+    impl<O: PartialEq> crate::intersect::point_class::ClassGeometry<O> for CurveGeometry<'_, O> {
+        fn curve(&self, handle: O) -> Option<&Curve> {
+            (self.handle.as_ref() == Some(&handle)).then_some(self.curve)
+        }
+        fn surface(&self, _: O) -> Option<&Surface> {
+            None
+        }
+        fn volume(&self, _: O) -> Option<&crate::surface::volume::Volume> {
+            None
+        }
+        fn point(&self, _: O) -> Option<Point3> {
+            None
+        }
+    }
+    if !vertices.is_empty() {
+        // UNPORTED(topology.vertex): VertexId-to-classification-handle mapping
+        // CurveOnClassifyObjects can map faces and curves, but has no vertex-handle
+        // constructor. The numerical IntersectVertices implementation is in p5.
+        return Err(SolidError::unported(
+            "VertexId-to-classification-handle mapping for IntersectVertices",
+            "topology.vertex",
+        ));
+    }
+    let geometry = CurveGeometry {
+        handle: cc.curve(),
+        curve: classification_curve(objects, cc)?,
+    };
+    cc.intersect_vertices(k, &geometry, &[], surface, has_big_gaps, true)
 }
 
 /// `SmFace::GetEdges(SmTArray&, NULL, bTgtLoopsOnly, pOptTgtLoops)`.
