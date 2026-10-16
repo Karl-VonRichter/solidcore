@@ -511,7 +511,10 @@ impl UnitDiff for Runner {
     }
     fn generate(&self, rng: &mut Rng) -> Option<Value> {
         for _ in 0..64 {
-            let op = rng.below(7) as usize;
+            let op = [0, 0, 0, 0, 0, 1, 1, 1, 3, 3, 6, 6, 2, 2, 4, 5]
+                .get(rng.below(16) as usize)
+                .copied()
+                .unwrap_or(0);
             let n = 1 + rng.below(5) as usize;
             let target = if op == 6 { 2 } else { rng.below(2) as usize };
             let scale = [1e-6, 1., 1e6]
@@ -537,6 +540,31 @@ impl UnitDiff for Runner {
             i.flag2 = rng.below(2) == 0;
             i.flag3 = rng.below(2) == 0;
             i.index = rng.below(2) as usize;
+            if op == 2 {
+                i.classes = (0..3 * n)
+                    .map(|j| {
+                        if j % 3 == 1 {
+                            if target == 0 {
+                                106
+                            } else {
+                                107
+                            }
+                        } else {
+                            100
+                        }
+                    })
+                    .collect();
+            }
+            if op == 3 && target == 3 {
+                i.classes = vec![102; 3 * n];
+                i.other_classes = i.classes.clone();
+            }
+            if op == 6 {
+                i.flag1 = true;
+                i.flag2 = false;
+                i.flag3 = true;
+                i.angle = if i.shape == 0 { rng.unit() } else { 1.0 };
+            }
             if op == 0 || op == 1 {
                 i.xsect_tol = if rng.below(2) == 0 {
                     -1.

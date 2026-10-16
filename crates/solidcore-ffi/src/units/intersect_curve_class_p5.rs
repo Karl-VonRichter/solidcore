@@ -29,7 +29,7 @@ fn invalid() -> FfiError {
 
 /// Validates and executes a bounded oracle input.
 ///
-/// Native topology mutation on bare objects, nonempty endpoint fixups, and the
+/// Native topology mutation on bare objects and the
 /// null-edge short-range tangency bug are excluded. Valid non-topology insertion,
 /// extraction, vertex projection and merge skip paths remain covered.
 pub fn validate(input: &[f64]) -> Result<(), FfiError> {
@@ -83,15 +83,6 @@ pub fn validate(input: &[f64]) -> Result<(), FfiError> {
         if !valid || ((op == 4 || op == 5) && (101.0..=104.0).contains(&class)) {
             return Err(invalid());
         }
-    }
-    if op == 2
-        && classes
-            .get(..3 * n)
-            .ok_or_else(invalid)?
-            .chunks_exact(3)
-            .any(|c| matches!(c,[_,mid,_] if *mid!=100.0))
-    {
-        return Err(invalid());
     }
     if ((op == 0 || op == 1) && n == 0 && ns > 0)
         || (op == 3 && n == 0)

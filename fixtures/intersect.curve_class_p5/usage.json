@@ -4751,6 +4751,18 @@
         "flag1": true,
         "flag2": true
       }
+    },
+    {
+      "name": "fixup_classified_curve_interval",
+      "upstream_ref": "source/SMLib/src/SmCurveClass.cpp:14096 (FixupClassification)",
+      "inputs": {
+        "op": 2,
+        "classes": [
+          100,
+          106,
+          100
+        ]
+      }
     }
   ]
 }

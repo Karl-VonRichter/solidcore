@@ -740,8 +740,6 @@ SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in
     // Topology mutation requires arena-backed native objects. This harness supports
     // the skip paths of merging; never call MergeInterval on a bare stand-in face.
     if(op==4 || op==5) for(int j=0;j<6*n;j++) if(classes[j]>=101 && classes[j]<=104) return SC_ERR_ARG;
-    // Nonempty fixup calls FixEndPointClass which needs real connected topology.
-    if(op==2) for(int j=0;j<n;j++) if(classes[3*j+1]!=100) return SC_ERR_ARG;
     if((op==0 || op==1) && n==0 && ns>0) return SC_ERR_ARG;
     if(op==6 && in[4] && in[5]) return SC_ERR_ARG; // no vertexuse on the standalone vertex
     if(op==3 && n==0) return SC_ERR_ARG; // Homogenize reads interval zero.
