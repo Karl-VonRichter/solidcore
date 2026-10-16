@@ -5468,8 +5468,10 @@ with the runner-only profile override. No platform prerequisites enter this PR.
   opt-level 2); outcomes and compared values were unchanged. No profile or build
   script changes are submitted. Nine affected units passed independently. The
   existing `--green` selection passed 185 units (99 green, 86 partial, zero
-  failures); the newly merged cone unit is validated separately with part 5.
-  Formatting, strict plain Clippy, all 1,208 merged kernel tests and WASM pass.
-  Source, harness and fixture checksums match the VM copy. Native-enabled Clippy
-  and the FFI tests also pass on the pre-cone revision; final merged checks are
-  recorded in the PR description.
+  failures). The final merged-base rerun confirms unchanged reports for parts
+  3/5/6/7 and face-query part 2, and validates the added cone part 3 (1,187
+  compared, 121 deferred, zero error). Part-5 perturbation detects all 1,043
+  modified outputs. Formatting, strict plain/native-enabled Clippy, all 1,208
+  merged kernel tests, WASM and native FFI tests (37 passed; the ignored child
+  helper is exercised by its 720-probe parent matrix) pass. Source, harness and
+  fixture checksums match the VM copy.
