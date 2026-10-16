@@ -957,7 +957,8 @@ perturbation also pass (6,463/6,463 detected). Committed reports total 435,272 c
 
 ## Curve-classification interval integration (2026-10-16, PR #138)
 
-`intersect.curve_class_p6` is partial: 787 cases, 281 bit-identical comparisons,
+Before the p2/p7 integration in PR #141, `intersect.curve_class_p6` was partial:
+787 cases, 281 bit-identical comparisons,
 zero failures and 506 explicit deferrals, without absolute floors. Insertion,
 homogenization and endpoint repair follow the upstream control flow, retaining
 explicit dependency boundaries. `MergeInterval` implements its early exits;
@@ -967,4 +968,20 @@ Nonempty homogenization/repair and 2D classification are not certified.
 The oracle uses concrete native geometric types and real box topology, records
 point-classification state and created-entity outputs, and compares actual curve
 evaluations. Native FFI regressions, including 720 isolated operation/kind/flag
-probes, are wired into CI. The PR remains draft pending explicit user approval.
+probes, are retained for manual execution in the PR #141 stack. Workflow changes
+are excluded from the numerical PR. The original PR #138 remains a separate claim;
+PR #141 integrates its code with p2/p7 and records revised validation separately.
+
+## Curve-classification extraction and merging (2026-10-16, PR #141)
+
+`intersect.curve_class_p5` is partial: 1,044 cases (244 fixed + 800 generated),
+1,043 bit-identical comparisons, zero failures and one generic curve-on-surface
+dispatch deferral. The seven APIs cover supported solution insertion, geometry
+extraction, endpoint repair, vertex projection and merge control flow. Mutable
+edge/SSS geometry ownership and part-6 graph mutation remain integration gaps.
+
+PR #141 merges the active p2/p7/p6 claims (#85/#65/#138) and wires their part-3
+and face-query callers. Part 3 now compares 3,163/3,292 cases (129 deferred), and
+part 6 compares 567/787 (220 deferred): 1,385 additional comparisons. Reports
+retain the fixed relative tolerance and add no absolute floors. Validation runs
+on the Linux `runner-codex-01` VM with the clean pinned upstream reference.

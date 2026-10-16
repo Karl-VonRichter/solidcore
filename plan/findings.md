@@ -4967,10 +4967,11 @@ mutated scales and accepted/reduced step counts are compared.
   the units' ports but on handle-to-B-rep resolution. The shim rejects the scripts that would
   walk a bare stand-in edge (undefined in C++: no edgeuse; UB-109/UB-110 cover the other
   undefined reads).
-- **Other stubs** are the maintainer's open PRs: `intersect.curve_class_p2` (PR #85: `InsertAt`,
+- **Original dependency stubs** were the maintainer's open PRs: `intersect.curve_class_p2` (PR #85: `InsertAt`,
   `EditIntervalMin/Max`, `ConnectIntervals`, `GetClassifyCrvLoc`) and `intersect.curve_class_p7`
   (PR #65: `GetPointClassByIndex`, `GetPointClassMateByIndex`, `AreCoincidentMaybe`). Cases that
-  reach them are `deferred`.
+  reached them were `deferred`. PR #141 merges those claims and wires these calls;
+  its revised differential evidence is recorded in the part-5 section below.
 - **`sm_FixProblemsBySqueezing`** ends with a tail call; the port restarts a loop at the same
   point (visit order unchanged), bounded by interval count + 1.
 
@@ -5080,18 +5081,20 @@ mutated scales and accepted/reduced step counts are compared.
 
 ## intersect.curve_class_p6 (partial; PR #138)
 
-- **Certified scope.** 787 default cases: 281 bit-identical comparisons, zero
+- **Original PR #138 evidence, before p2/p7 integration.** 787 default cases:
+  281 bit-identical comparisons, zero
   failures and 506 explicit deferrals; no absolute floors. The compared paths are
   non-splicing `InsertCurveInterval`, empty `Homogenize`, and the early
   `MergeInterval` exits. The native oracle calls the real four upstream members;
   geometry evaluations and interval/point-classification fields are compared along
   with statuses and created-entity output arrays. No status-only shortcut replaces
   a Rust or C++ operation.
-- **Dependency boundaries.** Nonempty homogenization and endpoint repair first need
-  `GetPointClassByIndex` (p7). Insertion that splits or squeezes needs p2; its
-  coincident-maybe decisions need p7. The last homogenization squeeze belongs to p4.
-  `MergeInterval` stops at `GetPointObjZoneTol3d` (p2), before the remaining topology
-  mutation. That continuation is not implemented or certified by this port.
+- **Original dependency boundaries.** Nonempty homogenization and endpoint repair first needed
+  `GetPointClassByIndex` (p7). Insertion that splits or squeezes needed p2; its
+  coincident-maybe decisions needed p7. PR #141 wires those dependencies. The last
+  homogenization squeeze still belongs to p4. `MergeInterval` now stops at mutable
+  handle-to-B-rep resolution (`topology.edge`), past its implemented p2 accessor.
+  Its remaining graph mutation is not implemented or certified by this port.
   Existing generic `point_class` tolerance access also defers on `topology.edge`
   and `topology.face_p2`: these are adapter gaps in the opaque `ClassObject`
   interface, even though those topology units already have arena APIs. The new
@@ -5403,3 +5406,70 @@ independent Apple libc++ database abort was not rerun.
 
 Strict C++-feature workspace Clippy also passes in the same disposable checkout
 with the runner-only profile override. No platform prerequisites enter this PR.
+
+## intersect.curve_class_p5 (PR #141)
+
+- **Scope and dependencies.** The seven owned functions are exposed in
+  `intersect::curve_class::p5`. This branch builds on the active p2/p7 claims
+  (PRs #85/#65) and p6 (PR #138); their implementations are merged rather than
+  duplicated. The part-3 insertion, point-index/mate, coincidence and interval
+  editing back-edges now use those implementations. Face `CurveOnClassify`
+  uses real reset and interval classification; its nonempty vertex list still
+  needs a `VertexId`-to-classification-handle mapping. No p5-tagged stubs remain.
+- **Native coverage.** The oracle constructs real lines/circles in 2D and 3D,
+  line/plane targets, standalone vertices and a real face owner. It compares the
+  complete interval/point-classification state, mutable solution records, and
+  extracted curve types/domains plus five sampled points per 3D/UV curve.
+  Fixtures cover range collapse at the 0.8/1.2 gap thresholds, reversed ranges,
+  tangency and interval boundaries, both solution indices, face-range length
+  thresholds, optional UV/isolated-point outputs, vertex projection, endpoint
+  repairs and merge skip paths. Generated cases use fixed seeds and scales
+  1e-6, 1 and 1e6. No absolute floors are added.
+- **Integration limits.** Opaque edge handles cannot resolve mutable B-rep
+  ownership for edge snapping/refinement. The SSS vertex-refinement block
+  (`SmCurveClass.cpp:14812–15082`) edits the intersection curve and clears UV
+  trims on connected/mate edges; it defers before mutation until that ownership
+  interface exists. Part-6 `MergeInterval` still implements only its early
+  exits and defers graph mutation on `topology.edge`; paired fillet handle
+  lookup is owned by `boolean.topology_intersector_p1`. The generic
+  `SmCrvOnSurf` surface dispatch is also missing: the current Rust type owns
+  only a B-spline surface, so the explicit analytic-plane fixture defers on the
+  `curve.crv_on_surf` type boundary, as in surface part 11. These topology/SSS paths and
+  nonempty large-gap vertexuses are not certified by the numerical comparisons.
+- **Review corrections.** Paired classifications reject shorter or longer
+  interval arrays before mutation, with focused regression tests. Extraction
+  slices analytic UV subclasses to their native B-spline base and preserves the
+  interval changed by preceding trims. Ordinary ignored trim errors remain
+  ignored; failed native copies return a safe error. Merge singularities retain
+  the native reused scratch-list append lifecycle. Fixup restarts are bounded
+  by three times the initial interval count plus one, allowing both interval
+  removals and edge-to-vertex snaps.
+- **Native safety.** UB-125 and UB-126 are source-found null dereferences, not
+  executed crash reproductions. The FFI rejects only the short ranges that
+  survive native collapse and reach the null-edge tangency branch; it retains
+  valid collapsed/reversed ranges and classified endpoint repair calls.
+  IntersectVertices receives a real surface owner, and standalone vertices are
+  excluded from its nonempty large-gap branch. Counts and complete records are
+  checked before native allocation or traversal.
+  UB-127 was reproduced in native generation and traced under a debugger: the
+  upstream UV base copy leaves a lazy line without a NURB and crashes in trim.
+  The oracle explicitly makes the UV line NURBs, matching Rust's base
+  materialization. Both sides also construct their input intervals with the
+  classification owner, so their initial source-zone fields agree.
+- **Validation environment and scope.** Numerical source is based on
+  `b7ea14fa` (official main merged through `bbf5b262`), with clean pinned
+  upstream `c9c5979f04cea8c38213004d4f04df0dcfb40d05`. Linux validation uses
+  Ubuntu 26.04.1 x86_64, GCC 15.2.0, Rust 1.98.0, two Cargo jobs or fewer,
+  and the unmodified reference flags (`-O2 -ffp-contract=off -fno-fast-math`).
+  The standard difftest profile compared all 1,043 supported part-5 cases
+  bit-identically; one generic curve-on-surface case deferred. After its blocker
+  label was corrected, the same 1,044 cases were rerun with only the difftest
+  adapter package at opt-level 0 (kernel remains opt-level 1, reference remains
+  opt-level 2); outcomes and compared values were unchanged. No profile or build
+  script changes are submitted. Nine affected units passed independently. The
+  existing `--green` selection passed 185 units (99 green, 86 partial, zero
+  failures); the newly merged cone unit is validated separately with part 5.
+  Formatting, strict plain Clippy, all 1,208 merged kernel tests and WASM pass.
+  Source, harness and fixture checksums match the VM copy. Native-enabled Clippy
+  and the FFI tests also pass on the pre-cone revision; final merged checks are
+  recorded in the PR description.
