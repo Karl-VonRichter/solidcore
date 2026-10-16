@@ -759,6 +759,9 @@ SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in
     if(op!=6) plane->SetOwner(NULL);
     auto uv1=std::unique_ptr<SmLine>(new (&ctx) SmLine(SmPoint3d(0,0,0),SmPoint3d(scale,0,0),2,&ctx));
     auto uv2=std::unique_ptr<SmLine>(new (&ctx) SmLine(SmPoint3d(0,0,0),SmPoint3d(0,scale,0),2,&ctx));
+    // ExtractGeometry slices these to SmBSplineCurve without making their NURBs.
+    // Supply initialized bases, as a real UV trim does, before that native cast.
+    if(op==3 && (uv1->MakeNurb()!=SM_SUCCESS || uv2->MakeNurb()!=SM_SUCCESS)) return SC_ERR_ARG;
     SmCurveClassification cc[2];
     for(int side=0;side<2;side++) {
         auto& c=cc[side]; const double* b=side ? other_bounds : bounds;
@@ -766,7 +769,9 @@ SC_EXPORT int32_t sc_intersect_curve_class_p5_run(const double* in, int64_t n_in
         if(op==3 && ((side==0 && in[4]) || (side==1 && in[5]))) c.SetUVCurve1(side==0?uv1.get():uv2.get());
         c.SetSize(n); c.SetInterval(SmExtent1d(b[0],b[n]));
         for(int j=0;j<n;j++) {
-            c[j].SetInterval(SmExtent1d(b[j],b[j+1]));
+            // Match the Rust fixture's explicitly owned interval construction;
+            // SetSize alone default-constructs intervals without the source zone.
+            c[j]=SmCurveInterval(SmExtent1d(b[j],b[j+1]),&ctx,&c);
             SmPointClassification* pcs[]={&c[j].m_vStart,&c[j].m_vMid,&c[j].m_vEnd};
             for(int k=0;k<3;k++) {
                 int cl=classes[side*3*n+3*j+k];
