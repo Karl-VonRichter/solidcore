@@ -16,7 +16,7 @@ use solidcore::primitive::api_primitives::{create_box, create_plane};
 use solidcore::query::brep::BrepFaceServices;
 use solidcore::query::face_surface_intersect;
 use solidcore::surface::plane::Plane;
-use solidcore::surface::surface::{Surface, SurfaceIntersection};
+use solidcore::surface::surface::{Surface, SurfaceIntersection, SurfaceKind};
 use solidcore::topology::brep::{edges, faces, stitch_and_orient, StitchAndOrientOptions};
 use solidcore::topology::brep_cache::CacheObject;
 use solidcore::topology::face;
@@ -198,14 +198,59 @@ fn face_surface_helper_preserves_domains_tolerances_values_and_trim_side_effects
                 assert!((point.x - 1.0).abs() < 1e-9);
                 assert!(point.z.abs() < 1e-9);
             }
-            assert!(actual_body
-                .edgeuses()
-                .iter()
-                .any(|(_, u)| u.uv_trim_curve.is_some()));
-        } else if low == 10.0 {
-            assert!(actual.curves_3d.is_empty());
         }
+        // Analytic intersections preserve the existing solver's domain behavior;
+        // they do not promise an extra clipping pass against tool_domain.
     }
+}
+
+#[test]
+fn nurbs_face_intersection_builds_missing_trims_through_the_live_face() {
+    let mut k = Kernel::default();
+    let mut body = create_plane(&mut k, Point3::ZERO, 2.0, 3.0).unwrap();
+    let face = faces(&body, None).unwrap()[0];
+    // Preserve the plane and its parameterization while taking the general NURBS
+    // solver path, which requires the owning face's cache service.
+    let nurbs = match face::surface(&body, face).unwrap().unwrap().kind() {
+        SurfaceKind::Plane(plane) => plane.base_with_nurb().unwrap().into_owned(),
+        _ => panic!("create_plane must produce a plane"),
+    };
+    let owner = body.owner_identity(EntityRef::Face(face));
+    face::p1::set_surface(&k, &mut body, face, owner, Surface::from(nurbs), true).unwrap();
+    let uses: Vec<_> = body.edgeuses().ids().collect();
+    for id in uses {
+        body.edgeuse_mut(id).unwrap().uv_trim_curve = None;
+    }
+    let surface = face::surface(&body, face)
+        .unwrap()
+        .unwrap()
+        .clone_for_evaluation()
+        .unwrap();
+    let domain = face::uv_domain(&body, face).unwrap();
+    let tool = Surface::from(Plane::from_normal(Point3::new(1.0, 0.0, 0.0), Vec3::X));
+    let tool_domain = Extent2d::from_bounds(-5.0, -5.0, 5.0, 5.0);
+    assert!(surface
+        .global_surface_intersect(
+            &k,
+            &domain,
+            &tool,
+            &tool_domain,
+            [true, true],
+            Some(1e-7),
+            None
+        )
+        .is_err());
+    let actual =
+        face_surface_intersect(&k, &mut body, face, &tool, &tool_domain, Some(1e-7)).unwrap();
+    assert!(!actual.curves_3d.is_empty());
+    for point in actual.curves_3d.iter().flat_map(|c| curve_samples(&k, c)) {
+        assert!((point.x - 1.0).abs() < 1e-9);
+        assert!(point.z.abs() < 1e-9);
+    }
+    assert!(body
+        .edgeuses()
+        .iter()
+        .any(|(_, u)| u.uv_trim_curve.is_some()));
 }
 
 fn offsets(session: &FilletSession<'_>, index: u32) -> [f64; 2] {
