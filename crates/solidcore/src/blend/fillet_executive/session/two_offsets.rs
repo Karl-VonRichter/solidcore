@@ -11,6 +11,7 @@
 //! List sizes and live edges are checked before changing session state. No recursion.
 
 use super::{FilletSession, FilletSurfaceGenerator};
+use crate::blend::fillet_executive::p3::ExecutionOptions;
 use crate::topology::{edge, EdgeId};
 use crate::{Kernel, Result, SolidError};
 
@@ -68,7 +69,7 @@ impl FilletSession<'_> {
         }
 
         self.executive.initialized = false;
-        self.executive.options = Default::default();
+        self.executive.options = ExecutionOptions::default();
         self.executive.cliff_overflow = false;
         self.executive.open_ends.clear();
         self.executive.overflow_edges.clear();

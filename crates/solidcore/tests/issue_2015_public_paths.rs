@@ -123,12 +123,10 @@ pub mod convenience {
 
 const _: fn(&solidcore::topology::Region) -> solidcore::Result<solidcore::Tri> =
     solidcore::topology::Region::void_state;
-const _: fn(
-    &mut solidcore::blend::fillet_executive::session::FilletSession<'_>,
-    &solidcore::Kernel,
-    &[solidcore::EdgeId],
-    &[f64],
-    &[f64],
-    &[solidcore::blend::fillet_solver::FilletSurfaceGenerator],
-) -> solidcore::Result<()> =
-    solidcore::blend::fillet_executive::session::FilletSession::prepare_per_edge_two_offsets;
+/// Type-check the lifetime-generic session method without executing preparation.
+pub fn prepare_two_offsets_compiles(
+    session: &mut solidcore::blend::fillet_executive::session::FilletSession<'_>,
+    kernel: &solidcore::Kernel,
+) -> solidcore::Result<()> {
+    session.prepare_per_edge_two_offsets(kernel, &[], &[], &[], &[])
+}

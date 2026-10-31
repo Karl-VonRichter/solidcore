@@ -7,6 +7,7 @@ use solidcore::blend::fillet_solver::FilletSurfaceGenerator;
 use solidcore::curve::curve::Curve;
 use solidcore::geom::attribute::{ids, Attribute, AttributeStore, Behavior, ObjectKey};
 use solidcore::geom::extent2d::Extent2d;
+use solidcore::heal::face_props::Tri as ExistingTri;
 use solidcore::mass::integrator::properties::{
     brep_mass_properties, brep_mass_properties_default, brep_volume, brep_volume_default,
     PropertyAttributes,
@@ -42,7 +43,7 @@ fn typed_predicates_preserve_all_three_states_and_reject_invalid_flags() {
         assert!(region.void_state().is_err());
     }
     // The public alias is the existing type, not a separate enum.
-    let _: solidcore::heal::face_props::Tri = Tri::Unsure;
+    let _: ExistingTri = Tri::Unsure;
 }
 
 #[test]
@@ -341,7 +342,7 @@ fn chamfered_box(manual: bool) -> (Brep, f64) {
                 .unwrap();
             session.load_solver(&k, solver).unwrap();
             session.set_solver_generator(solver, generator).unwrap();
-            session.create_corners(&mut k, None).unwrap();
+            session.create_corners(&k, None).unwrap();
             session.do_filleting(&mut k, None).unwrap();
         } else {
             session
